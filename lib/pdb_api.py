@@ -1,8 +1,10 @@
 import requests 
 import pandas as pd
 import json
-from Bio import PDB
+from Bio import PDB, Align
+from Bio.SeqUtils import seq1
 # so we need to load in the amino acid sequence from uniprot, and get the two structures from pdb. Then we align them    
+    
 def load_pdb(pdb_plus_chain):
     # some pdb ids might be formatted like this
     pdb_plus_chain = pdb_plus_chain.replace(":", "_")
@@ -35,32 +37,45 @@ def load_pdb(pdb_plus_chain):
 def load_motion_structures(pdb1, pdb2):
     atoms1, res_names1 = load_pdb(pdb1)
     atoms2, res_names2 = load_pdb(pdb2)
-    # TODO Implement this
+
     aligner = Align.PairwiseAligner()
     aligner.mode = 'global'
-    alignment = aligner.align(seq1_str, seq2_str)[0]  
-    intersection = set(atoms1.keys()) & set(atoms2.keys())
-    #print("diff1: ",[res_names1[key] for key in sorted(list(set(atoms1.keys()) - intersection))])
-    #print("diff2: ",[res_names2[key] for key in sorted(list(set(atoms2.keys()) - intersection))])
-    common_res_numbers = sorted(list(intersection))
+    aligner.open_gap_score = -10
+    aligner.extend_gap_score = -1
+
+    seq1_list = [(num, seq1(name)) for num, name in res_names1.items() if seq1(name) != 'X']
+    seq2_list = [(num, seq1(name)) for num, name in res_names2.items() if seq1(name) != 'X']
     
-    fixed_atoms = [atoms1[num] for num in common_res_numbers]
-    moving_atoms = [atoms2[num] for num in common_res_numbers]
+    seq1_str = "".join([char for _, char in seq1_list])
+    seq2_str = "".join([char for _, char in seq2_list])
+
+    intersecting_atoms1 = []
+    intersecting_atoms2 = []
+
+    alignment = aligner.align(seq1_str, seq2_str)[0]  
+    blocks1, blocks2 = alignment.aligned[:2]
+
+
+    for block1, block2 in zip(blocks1, blocks2):
+        for idx in range(block1[1] - block1[0]): # block1[1] - block1[0] = block2[1] - block2[0]
+            idx1 = idx + block1[0]
+            idx2 = idx + block2[0]
+
+            atom1 = atoms1[seq1_list[idx1][0]]
+            atom2 = atoms2[seq2_list[idx2][0]]
+            if(atom1.get_parent().get_resname() == atom2.get_parent().get_resname()):
+                print(atom1.get_parent().get_resname())
+                intersecting_atoms1.append(atom1)
+                intersecting_atoms2.append(atom2)
+            
     
     super_imposer = PDB.Superimposer()
-    super_imposer.set_atoms(fixed_atoms, moving_atoms)
+    super_imposer.set_atoms(intersecting_atoms1, intersecting_atoms2)
 
-    super_imposer.apply(moving_atoms) 
-    print(f"Alignment Complete. RMSD: {super_imposer.rms:.4f} Å")
+    super_imposer.apply(intersecting_atoms2) 
 
-     aligned_coords = {
-        str(fixed.get_parent().id): {  # Extracts the residue ID tuple from the atom safely
-            "fixed_coord": fixed.get_coord().tolist(),
-            "moving_coord_aligned": moving.get_coord().tolist()
-        } for fixed, moving in zip(fixed_atoms, moving_atoms)
-    }
     
-    return aligned_coords, 
+    return intersecting_atoms1, intersecting_atoms2, [atom.get_parent().get_resname() for atom in intersecting_atoms1]
 
 # for temporary use
 if __name__ == "__main__":
