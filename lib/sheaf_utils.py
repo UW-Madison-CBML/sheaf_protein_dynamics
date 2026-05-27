@@ -19,10 +19,12 @@ def eigenspectrum(laplacians, padding):
     identity = torch.eye(TD)
     identity = identity.reshape((1, 1, 3, 3))
     identity = identity.repeat(B,2, 1, 1)
+
     masked_laplacians = torch.where(identity_mask, laplacians, identity)
     
 
     masked_laplacians = masked_laplacians.view(B * 2, TD, TD)
+
     # now we have to figure out what to do with this:
     eigenspectra = torch.linalg.eigvals(masked_laplacians).view(B, 2, TD)
     # just give back the spectra, padding is the same. we have to concatenate or smth so that each can be one feature vector or feature sequence?
