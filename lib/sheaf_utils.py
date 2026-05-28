@@ -3,11 +3,23 @@ RESIDUES = []
 import torch.nn.functional as F
 import numpy as np
 from scipy.spatial import distance_matrix
-# there is no need for padding here
-def build_graph(conformations1, conformations2, epsilon):
+def build_graph(conformations1, conformations2, padding, epsilon):
+    # padding = (B,T)
     # B, T, 3 = conformations1.shape = conformations2.shape
-    dist_mat = torch.cdist(conformations1, conformations2, p=2)
-    return torch.lt(dist_mat, epsilon)
+    dist_mat1 = torch.cdist(conformations1, conformations1, p=2) # B, T, T
+    dist_mat2 = torch.cdist(conformations2, conformations2, p=2) # B, T, T
+    dist_mat = torch.stack([dist_mat1, dist_mat2], dim=1)
+    # to-do implement some other form of predicate to determine existence of edges
+    adjacency = (dist_mat < epsilon) & (padding[:,None, None, :] & padding[:, None, :, None])
+    #if we index restriction maps via adjacency mats 
+    #return adjacency
+
+    #alternatively if we want to do the edges list 
+    rows = torch.arange(T)[None,None,:,None].repeat(B,2, -1, -1)
+    cols = torch.arange(T)[None,None,None,:].repeat(B,2, -1, -1)
+    rows, cols = torch.broadcast_tensors(rows, cols)
+    
+    
 
 def eigenspectrum(laplacians, padding):
     # view the two laplacians together
@@ -16,11 +28,11 @@ def eigenspectrum(laplacians, padding):
     identity_mask = torch.einsum("bi,bj-> bij", padding, padding)
     identity_mask = identity_mask.unsqueeze(1).repeat(1,2,1,1)
     
-    identity = torch.eye(TD)
+    identity = -1 * torch.eye(TD) 
     identity = identity.reshape((1, 1, 3, 3))
     identity = identity.repeat(B,2, 1, 1)
 
-    masked_laplacians = torch.where(identity_mask, laplacians, identity)
+    masked_laplacians = torch.where(identity_mask, laplacians, identity) # sheaf laplacians always has positive eigenvalues, if we pad with negative identity, we know the -1 eignvalues cannot belong to the sheaf laplacian
     
 
     masked_laplacians = masked_laplacians.view(B * 2, TD, TD)
