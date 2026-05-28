@@ -17,7 +17,8 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     #alternatively if we want to do the edges list 
     rows = torch.arange(T)[None,None,:,None].repeat(B,2, -1, -1)
     cols = torch.arange(T)[None,None,None,:].repeat(B,2, -1, -1)
-    rows, cols = torch.broadcast_tensors(rows, cols)
+    rows, cols = torch.broadcast_tensors(rows, cols) # B, 2, T, T
+    adjacency
     
     
 
