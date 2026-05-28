@@ -3,7 +3,8 @@ import pandas as pd
 import json
 from Bio import PDB, Align
 from Bio.SeqUtils import seq1
-# so we need to load in the amino acid sequence from uniprot, and get the two structures from pdb. Then we align them    
+
+#TODO: so we need to load in the amino acid sequence from uniprot, and get the two structures from pdb. Then we align them    
     
 def load_pdb(pdb_plus_chain):
     # some pdb ids might be formatted like this
