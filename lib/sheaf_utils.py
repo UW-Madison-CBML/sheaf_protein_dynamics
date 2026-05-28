@@ -6,6 +6,7 @@ from scipy.spatial import distance_matrix
 def build_graph(conformations1, conformations2, padding, epsilon):
     # padding = (B,T)
     # B, T, 3 = conformations1.shape = conformations2.shape
+    B,T, _ = conformations1.shape
     dist_mat1 = torch.cdist(conformations1, conformations1, p=2) # B, T, T
     dist_mat2 = torch.cdist(conformations2, conformations2, p=2) # B, T, T
     dist_mat = torch.stack([dist_mat1, dist_mat2], dim=1)
@@ -15,10 +16,15 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     #return adjacency
 
     #alternatively if we want to do the edges list 
-    rows = torch.arange(T)[None,None,:,None].repeat(B,2, -1, -1)
-    cols = torch.arange(T)[None,None,None,:].repeat(B,2, -1, -1)
+    rows = torch.arange(T)[None,None,:,None].repeat(B,2, 1, 1)
+    cols = torch.arange(T)[None,None,None,:].repeat(B,2, 1, 1)
     rows, cols = torch.broadcast_tensors(rows, cols) # B, 2, T, T
-    adjacency
+    edges = torch.stack([rows, cols], dim=-1) 
+    adjacency,_ = torch.broadcast_tensors(adjacency.unsqueeze(-1),edges)
+    masked_edges = edges[adjacency]
+    return masked_edges
+   
+     
     
     
 
@@ -47,12 +53,12 @@ def eigenspectrum(laplacians, padding):
 if __name__ == "__main__":
     B = 3
     TD = 3
-    conformations1 = torch.randn((B, 2, TD, TD)) * 3
-    conformations2 = torch.randn((2, 3, 3)) * 3
+    conformations1 = torch.randn((B,TD,3)) * 3
+    conformations2 = torch.randn((B, TD, 3)) * 3
     padding = (torch.rand(B) * TD).to(int)
     padding = torch.arange(TD)[None, :] < padding[:, None] 
     print(padding)
     print(conformations1)
-    print(eigenspectrum(conformations1, padding))
+    print(build_graph(conformations1, conformations2, padding, 0.5))
     
     
