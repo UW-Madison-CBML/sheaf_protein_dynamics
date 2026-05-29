@@ -57,65 +57,57 @@ def other(T, edges, sheaves):
 
     return laplacian
 # implement the sheaf laplacian here in pytorch
+# batched, if you have pairs of sheaves (i.e. for classification, cat them along the batch dim
 def sheaf_laplacian(sheaves, edges, paddings):
     # we need paddings since the graphs are going to be of different sizes
     # let's say paddings is torch.bool of shape B,T
     # B = batch_size
     # T = padded number of residues in the protein sequence
     # each index in a batch contains 2 sheaves, one for each conformation
-    # is there some way we can encode the graphs in the sheaf tensor?, perhaps if at edge t_1, t_2 the matrix is all 0s... I think that would work with the sheaf laplacian calculation
-    #B,2,E, D, D = sheaves.shape # each batch is 2 sheaves, a sheaf is a set of D x D (size of the vector spaces on each edge and node) matrices indexed by an ordered edge, i.e. the edge (x_1, x_2) indexes the restriction map from the vector space on node x_1 to the vector space on the edge (x_1, x_2)
+    # is there some way we can encode the graphs in the sheaves tensor?, perhaps if at edge t_1, t_2 the matrix is all 0s... I think that would work with the sheaves laplacian calculation
+    #B,E,2, D, D = sheaves.shape # each batch is 2 sheaves, a sheaves is a set of D x D (size of the vector spaces on each edge and node) matrices indexed by an ordered edge, i.e. the edge (x_1, x_2) indexes the restriction map from the vector space on node x_1 to the vector space on the edge (x_1, x_2)
     B, _, E, D, _ = sheaves.shape
     # alternatively we could do sheaves.shape = B, 2, E, D,D
     # then we would need another list B, 2, E, 2 to store the edge indices, could also serve as the padding
-    #B, 2, E, 2 = edges.shape, must be right padded by [-1,-1]
-
-    cochain_sizes = paddings.sum(dim=1) * D # (B) cochain space is the direct sum of all the node spaces, so dim=D *t_i where t_i represents the number of nodes in sheaf i
-    laplacian_padding = torch.arange(T)[None, :] < cochain_sizes[:, None] 
+    #B, E, 2 = edges.shape, must be right padded by [-1,-1]
+    B,T = paddings.shape
+    cochain_sizes = paddings.sum(dim=1) * D # (B) cochain space is the direct sum of all the node spaces, so dim=D *t_i where t_i represents the number of nodes in sheaves i
+    laplacian_paddings = torch.arange(T*D)[None, :] < cochain_sizes[:, None] 
     
-    laplacian = torch.zeros((B, 2, D * T, D * T), device=sheaves.device)
     # laplacian definition:
-    # F is the sheaf
+    # F is the sheaves
     # let x be a vector in the 0-cochain space
     # the laplacian L  action on x at node u is as follows:
     # L(x)_u = sum_{u,v <= e} transpose(F(u <= e)) * (F(u <= e)(x_u) - F(v <= e)(x_v))
     # ((u,v) = e of course)
-    for idx in range(T):
-        lx_idx = torch.zeros(B, 2, D, D*T)
-        # add extra dims for broadcasting
-        edges_mask = (edges[:,:,:,0] == idx) # (idx,n) such edges
-        edges_towards = torch.where(edges_mask.unsqueeze(-1), edges, -1)
-        edges_away = edges_towards.roll(1, 2)# if an edge (0,n) exists, then (n,0) must also exist in the list
-        edges_mask = edges_mask[:, :, :, None, None]
-        #incident_edges = (edges_towards | edges_away) # torch.bool (B, 2, E, 1, 1)
-        # lx_0 = sum_{0,n <= {0,n}} transpose(F(0,n)) * ((F(0,n)*pi_0) - (F(n,0)*pi_n))
-        # let L_1 = F(0,n)*pi_0 
-        # let L_2 = F(n,0)*pi_n
-        sheaves_transpose = torch.where(edges_mask, torch.transpose(sheaves, 3, 4), 0)
-        pi_idx = F.pad(torch.eye(D), (idx*D,(T-idx-1)*D,0,0), 'constant', 0)[None,None,None,:,:].repeat(B,2,E)
-        sheaves_L_1 = torch.where(edges_towards, sheaves, 0)
-        L_1 = torch.einsum("bpexy,bpeyz->bpexz",sheaves_L_1,pi_idx)
-
-        
-        ident = torch.eye(D*T)[None,None,None,:,:].repeat(B,2,E,1,1)
-        
-        
-        
-        sheaves_L_2 = torch.where(edges_away, sheaves, 0)
-        L_2 = torch.einsum("bpexy,bpeyz->bpexz",sheaves_L_2,pi_n)
-        
+       
          
-    
+    B,E,_ , D, _ = sheaves.shape #B, E, 2, D, D: the two here is for both restriction maps; the first is for the map from node x_1 to e = (x_1, x_2), the other for x_2 to e = (x_1, x_2)
+    # B,E,2 = edges.shape
+
+    sheaf_laplacian = torch.zeros((B, T, T, D, D), device=sheaves.device)
+    edges_t = torch.transpose(edges,1,2)
+    non_diag = torch.einsum("...xy,...zy->...xz", -1*sheaves, sheaves.roll(2,1)) # -F^T(u <= (u,z))* F(z <= (u,z)), roll the pair dimension
+    diag = torch.einsum("...xy,...zy->...xz", sheaves, sheaves) #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z))
+    sheaf_laplacian[torch.arange(B), edges_t[:,0], edges_t[:,1]] = non_diag[:,:,0,:,:]
+    sheaf_laplacian[torch.arange(B), edges_t[:,1], edges_t[:,0]] = non_diag[:,:,1,:,:]
+    diag_mask = edges[:,None,:,:] == torch.arange(T)[:,None,None] # B,T, E, 2
+    diag = diag * diag_mask[:,:,:,:,None, None] # B,T,E,2,D,D
+    diag = diag.sum(dim=(2,3))
+    sheaf_laplacian[torch.arange(B), torch.arange(T)[None,:].repeat(B,1), torch.arange(T)[None,:].repeat(B,1)] = diag
+    sheaf_laplacian = sheaf_laplacian.permute(0,1,3,2,4).reshape(B,T*D,T*D)
+
+   
     
 
 
-    return laplacian, laplacian_padding
+    return sheaf_laplacian, laplacian_paddings
 if __name__ == "__main__": 
     B = 1
 
     T = 3
     D = 3
-
+    padding = torch.tensor([True,True,True])
     edges = torch.tensor([[0,1], [1,2]], dtype=torch.int) # 1, 2
     E = edges.shape[0]
     #edges = F.pad(edges, (0, E - edges.shape[0], 0, 0), "constant", -1) # E, 2
@@ -127,4 +119,4 @@ if __name__ == "__main__":
     paddings = torch.tensor([[True, True]])
     print(sheaves)
     print(edges)
-    print(sheaf_test(sheaves, edges, T))
+    print(sheaf_laplacian(sheaves.unsqueeze(0), edges.unsqueeze(0), padding.unsqueeze(0)))
