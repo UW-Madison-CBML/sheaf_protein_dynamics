@@ -52,7 +52,7 @@ def eigenspectrum(laplacians, padding):
 
 
     # now we have to figure out what to do with this:
-    eigenspectra = torch.linalg.eigvals(masked_laplacians)
+    eigenspectra = torch.linalg.eigvalsh(masked_laplacians)
     # just give back the spectra, padding is the same. we have to concatenate or smth so that each can be one feature vector or feature sequence?
     return eigenspectra
     
