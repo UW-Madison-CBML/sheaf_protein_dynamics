@@ -1,17 +1,34 @@
 import torch
 import torch.nn.functional as F
-def sheaf_test(sheaf, edges, T):
-    mask = torch.arange(T)[:,None] == edges
-    print(mask)
+def unbatched_sheaf(sheaf, edges, T):
     E,_ , D, _ = sheaf.shape # E, 2, D, D: the two here is for both restriction maps; the first is for the map from node x_1 to e = (x_1, x_2), the other for x_2 to e = (x_1, x_2)
+
+    sheaf_laplacian = torch.zeros(T, T,D,D)
+    edges_t = edges.t()
+    non_diag = torch.einsum("epxy,epzy->epxz", -1*sheaf, sheaf.roll(2,1)) # -F^T(u <= (u,z))* F(z <= (u,z))
+    diag = torch.einsum("epxy,epzy->epxz", sheaf, sheaf) #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z))
+    sheaf_laplacian[edges_t[0], edges_t[1]] = non_diag[:,0,:,:]
+    sheaf_laplacian[edges_t[1], edges_t[0]] = non_diag[:,1,:,:]
+    diag_mask = edges == torch.arange(T)[:,None,None] # T, E, 2
+    diag = diag * diag_mask[:,:,:,None, None] # T,E,2,D,D
+    diag = diag.sum(dim=(1,2))
+    sheaf_laplacian[torch.arange(T), torch.arange(T)] = diag
+    sheaf_laplacian = sheaf_laplacian.permute(0,2,1,3).reshape(T*D,T*D)
+    print(sheaf_laplacian)
+
+
+
+
+    
+def other(T, edges, sheaves):
     # E, 2 = edges.shape
     block_rows = []
     
     for idx in range(T):
 
-        towards_edges_mask = (edges[:,0] == idx)[:,None,None] # (idx,n) such edges
+        towards_edges_mask = (edges[:,0] == idx)[:, None, None] # (idx,n) such edges
         
-        away_edges_mask = (edges[:,1] == idx)[:,None,None] # (idx,n) such edges
+        away_edges_mask = (edges[:,1] == idx)[:, None, None] # (idx,n) such edges
 
 
         sheaves_transpose = torch.where(away_edges_mask, torch.transpose(sheaves[:,0,:,:], 1, 2), 0) + torch.where(towards_edges_mask, torch.transpose(sheaves[:,1,:,:], 1, 2), 0)
@@ -96,10 +113,10 @@ def sheaf_laplacian(sheaves, edges, paddings):
 if __name__ == "__main__": 
     B = 1
 
-    T = 2
+    T = 3
     D = 3
 
-    edges = torch.tensor([[0,1]], dtype=torch.int) # 1, 2
+    edges = torch.tensor([[0,1], [1,2]], dtype=torch.int) # 1, 2
     E = edges.shape[0]
     #edges = F.pad(edges, (0, E - edges.shape[0], 0, 0), "constant", -1) # E, 2
     
