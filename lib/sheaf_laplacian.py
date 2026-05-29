@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from sheaf_utils import eigenspectrum
 def unbatched_sheaf(sheaf, edges, T):
     E,_ , D, _ = sheaf.shape # E, 2, D, D: the two here is for both restriction maps; the first is for the map from node x_1 to e = (x_1, x_2), the other for x_2 to e = (x_1, x_2)
 
@@ -114,9 +115,11 @@ if __name__ == "__main__":
     
     
     
-    sheaves = torch.eye(D)[None,None,:,:].repeat(E,2,1,1) 
-    #sheaves = torch.rand(E ,2,D,D)
-    paddings = torch.tensor([[True, True]])
+    #sheaves = torch.eye(D)[None,None,:,:].repeat(E,2,1,1) 
+    sheaves = torch.rand(E ,2,D,D)
     print(sheaves)
     print(edges)
-    print(sheaf_laplacian(sheaves.unsqueeze(0), edges.unsqueeze(0), padding.unsqueeze(0)))
+    
+    lap, pad = sheaf_laplacian(sheaves.unsqueeze(0), edges.unsqueeze(0), padding.unsqueeze(0))
+    print(lap) 
+    print(eigenspectrum(lap,pad).real)
