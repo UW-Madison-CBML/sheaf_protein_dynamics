@@ -8,6 +8,7 @@ def unbatched_sheaf(sheaf, edges, T):
     edges_t = edges.t()
     non_diag = torch.einsum("epxy,epzy->epxz", -1*sheaf, sheaf.roll(2,1)) # -F^T(u <= (u,z))* F(z <= (u,z))
     diag = torch.einsum("epxy,epzy->epxz", sheaf, sheaf) #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z))
+    
     sheaf_laplacian[edges_t[0], edges_t[1]] = non_diag[:,0,:,:]
     sheaf_laplacian[edges_t[1], edges_t[0]] = non_diag[:,1,:,:]
     diag_mask = edges == torch.arange(T)[:,None,None] # T, E, 2
@@ -21,42 +22,6 @@ def unbatched_sheaf(sheaf, edges, T):
 
 
     
-def other(T, edges, sheaves):
-    # E, 2 = edges.shape
-    block_rows = []
-    
-    for idx in range(T):
-
-        towards_edges_mask = (edges[:,0] == idx)[:, None, None] # (idx,n) such edges
-        
-        away_edges_mask = (edges[:,1] == idx)[:, None, None] # (idx,n) such edges
-
-
-        sheaves_transpose = torch.where(away_edges_mask, torch.transpose(sheaves[:,0,:,:], 1, 2), 0) + torch.where(towards_edges_mask, torch.transpose(sheaves[:,1,:,:], 1, 2), 0)
-
-        pi_idx = F.pad(torch.eye(D), (idx*D,(T-idx-1)*D,0,0), 'constant', 0)
-        sheaves_L_1 = torch.where(towards_edges_mask, sheaves[:,0,:,:], 0) + torch.where(away_edges_mask, sheaves[:,1,:,:], 0)
-
-        L_1 = torch.einsum("exy,yz->exz", sheaves_L_1, pi_idx)
-        
-        ident = torch.eye(D*T).unsqueeze(0).repeat(E,1,1)
-        index = (torch.arange(D)[None, :] +(D* edges[:,0][:,None]))[:,:,None].repeat(1,1,D*T)
-        
-        pi_n = torch.gather(ident, 1, index)
-        
-        sheaves_L_2 = torch.where(away_edges_mask, sheaves[:,1,:,:], 0) + torch.where(towards_edges_mask, sheaves[:,0,:,:], 0)
-        
-        L_2 = torch.einsum("exy,eyz->exz",sheaves_L_2,pi_n)
-        
-        lap_block_row = torch.einsum("exy,eyz->xz",sheaves_transpose,L_1-L_2)
-        block_rows.append(lap_block_row)
-        print(idx)
-        
-        
-     
-    laplacian = torch.cat(block_rows, dim=0)
-
-    return laplacian
 # implement the sheaf laplacian here in pytorch
 # batched, if you have pairs of sheaves (i.e. for classification, cat them along the batch dim
 def sheaf_laplacian(sheaves, edges, paddings):
