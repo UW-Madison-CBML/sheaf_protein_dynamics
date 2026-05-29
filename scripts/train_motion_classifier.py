@@ -1,4 +1,4 @@
-from lib import MotionClassifierDataset,
+from lib import MotionClassifierDataset, 
 
 def train_motion_classifier():
     
