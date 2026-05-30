@@ -1,6 +1,11 @@
 import torch
 from pdb_api import load_motion_strctures
 # this will be the ground truth order of pocket motion classes
+# PE = Pocket-expanding
+# PS = Pocket-shrinking
+# PF = Pocket-fusing
+# PC = Pocket-creating
+# OM = Other motion
 MOTION_CLASSES = ["PE","PS","PF","PC","OM"]
 from torch.nn.utils.rnn import pad_sequence
 def pad_collate(batch):
