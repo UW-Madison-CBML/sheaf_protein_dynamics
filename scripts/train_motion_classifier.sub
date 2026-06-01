@@ -21,7 +21,7 @@ when_to_transfer_output = ON_EXIT_OR_EVICT
 Requirements = (Target.HasCHTCStaging == true)
 #require_gpus = (DriverVersion >= 10.1)
 # Transfer our executable script
-transfer_input_files = train_motion_classifier.sh, train_motion_classifier.py, ../api_keys.txt, file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/free_bound_pocket.csv, file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/bound_dif_ligand_pocket.csv, ../lib/*, ../requirements.txt
+transfer_input_files = train_motion_classifier.sh, train_motion_classifier.py, ../api_keys.txt, file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/free_bound_pocket.csv, file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/bound_dif_ligand_pocket.csv, ../lib/, ../requirements.txt
 gpus_minimum_capability = 7.0
 requirements= Machine=="bhaskargpu4000.chtc.wisc.edu"
 

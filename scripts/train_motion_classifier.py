@@ -17,7 +17,7 @@ def train_motion_classifier():
     run = wandb.init(
         entity="jenslundsgaard7-uw-madison",
         project="SheafProtein",
-        name="sheaf_training"
+        name="sheaf_training",
         config={
             "epsilon":epsilon,
             "lr":learning_rate,
@@ -72,13 +72,13 @@ def train_motion_classifier():
             # compare prediction to ground truth classes
             loss = crit(logits, motion_classes)
         
-            run.log("loss":loss.detach().cpu().item())
+            run.log({"loss":loss.detach().cpu().item()})
         
         # validation
         model.eval()
         with torch.no_grad():
-            for conformations1, conformations2, residues, motion_classes, lengths in loader:
-                run.log("val_loss" : 0.0)
+            for conformations1, conformations2, residues, motion_classes, lengths in val_loader:
+                run.log({"val_loss" : 0.0})
         
 
     
