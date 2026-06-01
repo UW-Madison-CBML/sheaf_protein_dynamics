@@ -30,8 +30,10 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     adjacency = (dist_mat < epsilon) & (padding[:,None, None, :] & padding[:, None, :, None])
 
     # Remove self-loops
+    # TODO also remove duplicates; the data structure I'm using in the sheaf laplacian is edges = (B,E,2) a set of unique edges whose indices are < T, and >= 0. Padding is done with the pairs (-1, -1). The sheaves or sets of restriction maps are of shape (B,E,2,D,D) where at index [:,i] we have the 2 restriction maps from node edges[:,i,0] to edge edges[:,i] and from node edges[:,i,1] to edges[:,i]
     diag_mask = torch.eye(T, dtype=torch.bool, device=adjacency.device)
     adjacency = adjacency & ~diag_mask[None, None, :, :]
+
     #if we index restriction maps via adjacency mats 
     #return adjacency
 

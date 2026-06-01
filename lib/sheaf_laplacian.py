@@ -25,13 +25,10 @@ def unbatched_sheaf(sheaf, edges, T):
 # implement the sheaf laplacian here in pytorch
 # batched, if you have pairs of sheaves (i.e. for classification, cat them along the batch dim
 def sheaf_laplacian(sheaves, edges, paddings):
-    # we need paddings since the graphs are going to be of different sizes
     # let's say paddings is torch.bool of shape B,T
     # B = batch_size
     # T = padded number of residues in the protein sequence
-    # each index in a batch contains 2 sheaves, one for each conformation
-    # is there some way we can encode the graphs in the sheaves tensor?, perhaps if at edge t_1, t_2 the matrix is all 0s... I think that would work with the sheaves laplacian calculation
-    #B,E,2, D, D = sheaves.shape # each batch is 2 sheaves, a sheaves is a set of D x D (size of the vector spaces on each edge and node) matrices indexed by an ordered edge, i.e. the edge (x_1, x_2) indexes the restriction map from the vector space on node x_1 to the vector space on the edge (x_1, x_2)
+    #B,E,2, D, D = sheaves.shape 
     B, _, E, D, _ = sheaves.shape
     # alternatively we could do sheaves.shape = B, 2, E, D,D
     # then we would need another list B, 2, E, 2 to store the edge indices, could also serve as the padding
@@ -55,6 +52,7 @@ def sheaf_laplacian(sheaves, edges, paddings):
     edges_t = torch.transpose(edges,1,2)
     non_diag = torch.einsum("...xy,...zy->...xz", -1*sheaves, sheaves.roll(2,1)) # -F^T(u <= (u,z))* F(z <= (u,z)), roll the pair dimension
     diag = torch.einsum("...xy,...zy->...xz", sheaves, sheaves) #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z))
+    # TODO: need to make this safe for (-1, -1) padding edges
     sheaf_laplacian[torch.arange(B), edges_t[:,0], edges_t[:,1]] = non_diag[:,:,0,:,:]
     sheaf_laplacian[torch.arange(B), edges_t[:,1], edges_t[:,0]] = non_diag[:,:,1,:,:]
     diag_mask = edges[:,None,:,:] == torch.arange(T)[:,None,None] # B,T, E, 2

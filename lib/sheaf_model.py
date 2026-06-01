@@ -21,7 +21,7 @@ class SheafMotionClassifier(torch.nn.Module):
         self.lin4 = torch.nn.Linear(self.lstm_hidden_dim*2, self.num_classes)
         
     def forward(self, nodes, edges, padding):
-        #B,2,T,N
+        #B,2,T,self.node_features
         B,_, T,N = nodes.shape
         # B, 2, E, 2
         _,_,E,_ = edges.shape
@@ -36,9 +36,9 @@ class SheafMotionClassifier(torch.nn.Module):
         
         graphs = graphs.reshape(B,2,2*E,2*self.hidden_dim)
         sheaves = F.relu(self.lin3(graphs)) #B,2,2*E,stalk_dim^2
-        sheaves = sheaves.reshape(B,2,E,2,self.stalk_dimensions, self.stalk_dimensions)
-
-        eigenspectra = eigenspectrum(*sheaf_laplacian(sheaves,padding)) # B,2,T
+        sheaves = sheaves.reshape(B*2,E,2,self.stalk_dimensions, self.stalk_dimensions)
+        # reshape the batches of two sheaves for each conformation into the batches dimension
+        eigenspectra = eigenspectrum(*sheaf_laplacian(sheaves,padding)).reshape(B,2,T) # B,2,T
         eigenspectra = eigenspectra.permute(0,2,1) # B, T, 2
         seqs = pack_padded_sequences(eigenspectra, padding)
         _, (h, _) = self.lstm(seqs) # h.shape = 2, B, lstm_hidden_dim
