@@ -1,7 +1,8 @@
 import torch
-from pdb_api import load_motion_strctures
+from pdb_api import load_motion_structures
 from torch.nn.utils.rnn import pad_sequence
-
+from torch.utils.data import Dataset
+import pandas as pd
 from Bio.Data import IUPACData
 
 class MotionClassifierDataset(Dataset):
@@ -25,7 +26,7 @@ class MotionClassifierDataset(Dataset):
             conformation1, conformation2, residues = load_motion_structures(row["pdb_1", "pdb_2"])
             residues = [res.strip().upper() for res in residues]
             motion_class = row["motion_class"]
-            res_df = pd.DataFrame({"residue": [AMINO_ACIDS.index(res) for res in residues], "motion_class":motion_class, "res_name":residues})
+            res_df = pd.DataFrame({"residue": [self.__class__.AMINO_ACIDS.index(res) for res in residues], "motion_class":motion_class, "res_name":residues})
             conformation1_df = pd.DataFrame(conformation1, columns=["conf1_0", "conf1_1", "conf1_2"], index=res_df.index) 
             conformation2_df = pd.DataFrame(conformation2, columns=["conf2_0", "conf2_1", "conf2_2"], index=res_df.index) 
             df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
@@ -37,7 +38,7 @@ class MotionClassifierDataset(Dataset):
 
     def __getitem__(self, idx):
         df = self.groups[idx]
-        return torch.from_numpy(df[["conf1_0", "conf1_1", "conf1_2"]].to_numpy()), torch.from_numpy(df[["conf2_0", "conf2_1", "conf2_2"]].to_numpy()), torch.tensor(df['residue'].to_list()), torch.tensor(MOTION_CLASSES.index(df.iloc[0]["motion_class"]), dtype=torch.long)
+        return torch.from_numpy(df[["conf1_0", "conf1_1", "conf1_2"]].to_numpy()), torch.from_numpy(df[["conf2_0", "conf2_1", "conf2_2"]].to_numpy()), torch.tensor(df['residue'].to_list(),dtype=torch.long), torch.tensor(self.__class__.MOTION_CLASSES.index(df.iloc[0]["motion_class"]), dtype=torch.long)
     @staticmethod
     def pad_collate(batch):
         conformations1, conformations2, residues, motion_classes = zip(*batch)

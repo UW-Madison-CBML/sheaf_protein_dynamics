@@ -1,4 +1,6 @@
-from lib import MotionClassifierDataset, SheafMotionClassifier
+from lib.sheaf_classifier_dataset import MotionClassifierDataset
+from lib.sheaf_model import SheafMotionClassifier
+from lib.sheaf_utils import build_graph
 import pandas as pd
 import numpy as np
 import torch
@@ -6,6 +8,7 @@ import torch.nn.functional as F
 import wandb
 from torch.utils.data import DataLoader
 
+import os
 def train_motion_classifier():
     # hyperparameter
     epsilon = 5.0 # in Angstroms
@@ -38,7 +41,7 @@ def train_motion_classifier():
     
     # set up validation split
     val_df = df[df_mask]
-    df = df[~ mask]
+    df = df[~ df_mask]
     dataset = MotionClassifierDataset(df)
     val_dataset = MotionClassifierDataset(val_df)
     # set up dataloader
@@ -57,8 +60,8 @@ def train_motion_classifier():
 
     for epoch in range(epochs):
         for conformations1, conformations2, residues, motion_classes, lengths in loader:
-            conformations1 = conformation1.to(DEVICE) # B, T, 3  
-            conformations2 = conformation2.to(DEVICE) # B, T, 3 
+            conformations1 = conformations1.to(DEVICE) # B, T, 3  
+            conformations2 = conformations2.to(DEVICE) # B, T, 3 
             residues = residues.to(DEVICE) # B, T
             motion_classes = motion_classes.to(DEVICE) # B
             graphs, graph_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE)) # B, 2, E, 2

@@ -1,5 +1,6 @@
 #!/bin/bash
 pip install -r requirements.txt
+ls -R
 python -m ruff check . --select F821,E9 || exit 1
 
 HF_KEY=$(head -n 1 api_keys.txt)
