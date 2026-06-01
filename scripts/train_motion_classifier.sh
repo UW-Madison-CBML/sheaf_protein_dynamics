@@ -1,5 +1,4 @@
 #!/bin/bash
-pip install -r requirements.txt
 ls -R
 python -m ruff check . --select F821,E9 || exit 1
 
