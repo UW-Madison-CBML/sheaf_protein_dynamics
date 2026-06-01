@@ -82,10 +82,10 @@ def eigenspectrum(laplacians, padding):
     masked_laplacians = torch.where(identity_mask, laplacians, identity) # sheaf laplacians always has positive eigenvalues, if we pad with negative identity, we know the -1 eignvalues cannot belong to the sheaf laplacian
     
 
-
-    # now we have to figure out what to do with this:
+    
+    # if our laplacians are symmetric we can use eigvalsh
+    # otherwise just use eigvals
     eigenspectra = torch.linalg.eigvalsh(masked_laplacians)
-    # just give back the spectra, padding is the same. we have to concatenate or smth so that each can be one feature vector or feature sequence?
     return eigenspectra
     
     
