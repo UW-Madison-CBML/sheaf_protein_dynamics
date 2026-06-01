@@ -2,10 +2,20 @@ from lib import MotionClassifierDataset, SheafMotionClassifier
 import pandas as pd
 import numpy as np
 import torch
+import torch.nn.functional as F
 import wandb
 from torch.utils.data import DataLoader
 
 def train_motion_classifier():
+    # hyperparameter
+    epsilon = 5.0 # in Angstroms
+    learning_rate = 1e-4
+    epochs = 8
+
+    #-----------------------------------------------------------
+    # TODO set up wandb api
+
+    
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     # load in data
     columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket', 'DrugBank_target']
@@ -29,10 +39,52 @@ def train_motion_classifier():
     model = SheafMotionClassifier(len(MotionClassifierDataset.AMINO_ACIDS)+3, 8, num_classes=len(MotionClassifierDataset.MOTION_CLASSES))
     model = model.to(DEVICE)
     
-    # training  
-    for 
+    # set up other training stuff
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5) 
+    crit = torch.nn.CrossEntropyLoss()
     
-    # validation
+    # training  
+
+    for epoch in range(epochs):
+        for conformations1, conformations2, residues, motion_classes, lengths in loader:
+            conformations1 = conformation1.to(DEVICE) # B, T, 3  
+            conformations2 = conformation2.to(DEVICE) # B, T, 3 
+            residues = residues.to(DEVICE) # B, T
+            motion_classes = motion_classes.to(DEVICE) # B
+            graphs, graph_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE)) # B, 2, E, 2
+            residues_one_hot = F.one_hot(residues, num_classes=len(MotionClassifierDataset.AMINO_ACIDS)) # B, T, amino_acids
+            node_features1 = torch.cat([conformations1, residues_one_hot],dim=2) # B, T, 3 + amino_acids 
+            node_features2 = torch.cat([conformations2, residues_one_hot],dim=2) 
+            
+            node_features = torch.stack([node_features1, node_features2], dim=1)
+            logits = model(node_features, graphs, graph_paddings) # B 
+
+            # compare prediction to ground truth classes
+            loss = crit(logits, motion_classes)
+        
+            run.log("loss":loss.detach().cpu().item())
+        
+        # validation
+        model.eval()
+        with torch.no_grad():
+            for conformations1, conformations2, residues, motion_classes, lengths in loader:
+                conformations1 = conformation1.to(DEVICE) # B, T, 3  
+                conformations2 = conformation2.to(DEVICE) # B, T, 3 
+                residues = residues.to(DEVICE) # B, T
+                motion_classes = motion_classes.to(DEVICE) # B
+                graphs, graph_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE)) # B, 2, E, 2
+                residues_one_hot = F.one_hot(residues, num_classes=len(MotionClassifierDataset.AMINO_ACIDS)) # B, T, amino_acids
+                node_features1 = torch.cat([conformations1, residues_one_hot],dim=2) # B, T, 3 + amino_acids 
+                node_features2 = torch.cat([conformations2, residues_one_hot],dim=2) 
+                
+                node_features = torch.stack([node_features1, node_features2], dim=1)
+                logits = model(node_features, graphs, graph_paddings) # B 
+
+                # compare prediction to ground truth classes
+                loss = crit(logits, motion_classes)
+                run.log("val_loss" : loss.cpu().item())
+        
+
     
 
 if __name__ == "__main__":

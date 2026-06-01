@@ -64,7 +64,7 @@ def build_graph(conformations1, conformations2, padding, epsilon):
 
     # Gather edges
     out_list = edges[b_idx, c_idx, indices]
-
+    # TODO return edge paddings as well
     return out_list
    
      
