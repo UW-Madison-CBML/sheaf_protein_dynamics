@@ -14,7 +14,17 @@ def train_motion_classifier():
 
     #-----------------------------------------------------------
     # TODO set up wandb api
+    run = wandb.init(
+        entity="jenslundsgaard7-uw-madison",
+        project="SheafProtein",
+        name="sheaf_training"
+        config={
+            "epsilon":epsilon,
+            "lr":learning_rate,
+            "epochs":epochs 
+        },
 
+    )
     
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     # load in data
@@ -57,7 +67,7 @@ def train_motion_classifier():
             node_features2 = torch.cat([conformations2, residues_one_hot],dim=2) 
             
             node_features = torch.stack([node_features1, node_features2], dim=1)
-            logits = model(node_features, graphs, graph_paddings) # B 
+            logits = model(node_features, graphs, lengths, graph_paddings) # B 
 
             # compare prediction to ground truth classes
             loss = crit(logits, motion_classes)
@@ -68,21 +78,7 @@ def train_motion_classifier():
         model.eval()
         with torch.no_grad():
             for conformations1, conformations2, residues, motion_classes, lengths in loader:
-                conformations1 = conformation1.to(DEVICE) # B, T, 3  
-                conformations2 = conformation2.to(DEVICE) # B, T, 3 
-                residues = residues.to(DEVICE) # B, T
-                motion_classes = motion_classes.to(DEVICE) # B
-                graphs, graph_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE)) # B, 2, E, 2
-                residues_one_hot = F.one_hot(residues, num_classes=len(MotionClassifierDataset.AMINO_ACIDS)) # B, T, amino_acids
-                node_features1 = torch.cat([conformations1, residues_one_hot],dim=2) # B, T, 3 + amino_acids 
-                node_features2 = torch.cat([conformations2, residues_one_hot],dim=2) 
-                
-                node_features = torch.stack([node_features1, node_features2], dim=1)
-                logits = model(node_features, graphs, graph_paddings) # B 
-
-                # compare prediction to ground truth classes
-                loss = crit(logits, motion_classes)
-                run.log("val_loss" : loss.cpu().item())
+                run.log("val_loss" : 0.0)
         
 
     

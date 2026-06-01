@@ -63,9 +63,9 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     c_idx = torch.arange(2)[None, :, None] # [1, 2, 1]
 
     # Gather edges
-    out_list = edges[b_idx, c_idx, indices]
-    # TODO return edge paddings as well
-    return out_list
+    out_list = edges[b_idx, c_idx, indices] # B,2, E, 2
+    out_padding = (out_list[:,:,:,0] == -1) | (out_list[:,;,:,1] == -1)
+    return out_list, out_padding
    
      
     

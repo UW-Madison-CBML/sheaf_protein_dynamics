@@ -1,6 +1,7 @@
-# random reqs for misc scrips
 requests
 pandas
 numpy
 beautifulsoup4
 biopython
+ruff
+
