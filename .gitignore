@@ -1,2 +1,5 @@
 misc/.venv
 api_keys.txt
+*.out
+*.err
+*.log
