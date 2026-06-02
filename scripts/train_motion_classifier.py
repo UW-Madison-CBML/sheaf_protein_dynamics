@@ -41,9 +41,19 @@ def train_motion_classifier():
     epsilon = 5.0 # in Angstroms
     learning_rate = 1e-4
     epochs = 8
+    val_ratio = 0.3 
 
-    #-----------------------------------------------------------
-    # TODO set up wandb api
+    
+    # set up device 
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
+    # load in data
+    df = pd.read_csv(os.path.abspath("motions.csv"))
+    motion_ids = df["motion_id"].unique()
+    #np.random.shuffle(motion_ids) # optionally shuffle the motion ids
+    val_motions = motion_ids[:int(val_ratio * len(motion_ids))]
+    df_mask = df["motion_id"].isin(split)
+
+    #set up wandb
     wandb.login(key=os.getenv("WANDB_KEY"))
     run = wandb.init(
         entity="jenslundsgaard7-uw-madison",
@@ -52,18 +62,12 @@ def train_motion_classifier():
         config={
             "epsilon":epsilon,
             "lr":learning_rate,
-            "epochs":epochs 
+            "epochs":epochs,
+            "val_motions": val_motions,
+            "val_ratio":val_ratio,
         },
 
     )
-    
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
-    # load in data
-    df = df.dropna() # there seems to be a bunch of junk rows at the end
-    # shuffle for randomness for now
-    df = df.sample(frac=1, random_state=42).reset_index(drop=True) 
-    df_mask = np.arange(len(df)) < int(0.3 * len(df))
-    
     # set up validation split
     val_df = df[df_mask]
     df = df[~ df_mask]
