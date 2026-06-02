@@ -10,15 +10,28 @@ def load_pdb(pdb_plus_chain):
     # pdb ids are sometimes formatted like this
     pdb_plus_chain = pdb_plus_chain.replace(":", "_")
     if("_" not in pdb_plus_chain):
-        return ValueError(f"bad id: {pdb_plus_chain}")
-    pdb_id, chain_id = pdb_plus_chain.split("_")
+        print(f"no chain id: {pdb_plus_chain}")
+        pdb_id = pdb_plus_chain
+        chain_id = ""
+    else:
+        pdb_id, chain_id = pdb_plus_chain.split("_")
     pdb_id = pdb_id[:4]
     pdbl = PDB.PDBList()
     file_path = pdbl.retrieve_pdb_file(pdb_id, file_format="pdb", pdir=".")
     
     parser = PDB.PDBParser(QUIET=True)
     structure = parser.get_structure(pdb_id, file_path) 
-    chain = structure[0][chain_id.upper()] 
+    if chain_id:
+        chain = structure[0][chain_id.upper()] 
+    else:
+        first_structure = structure[0]
+        all_chains = list(first_structure.get_chains())
+    
+        if all_chains:
+            chain_id = all_chains[0].id.strip()
+        else:
+            chain_id = "A" # otherwise fall back to A, this does not seem to happen much
+        chain = structure[0][chain_id.upper()] 
     atoms = {}
     res_names = {}
     for residue in chain:
@@ -36,7 +49,6 @@ def load_pdb(pdb_plus_chain):
 
 
 def load_motion_structures(pdb1, pdb2):
-    print(load_pdb(pdb1))
     atoms1, res_names1 = load_pdb(pdb1)
     atoms2, res_names2 = load_pdb(pdb2)
 
@@ -66,7 +78,6 @@ def load_motion_structures(pdb1, pdb2):
             atom1 = atoms1[seq1_list[idx1][0]]
             atom2 = atoms2[seq2_list[idx2][0]]
             if(atom1.get_parent().get_resname() == atom2.get_parent().get_resname()):
-                print(atom1.get_parent().get_resname())
                 intersecting_atoms1.append(atom1)
                 intersecting_atoms2.append(atom2)
             
@@ -81,7 +92,7 @@ def load_motion_structures(pdb1, pdb2):
 
 # for temporary use
 if __name__ == "__main__":
-    print(load_motion_structures("6WGU_A", "6WH5_A"))
+    print(load_motion_structures("2V66", "2V66"))
     
 
     
