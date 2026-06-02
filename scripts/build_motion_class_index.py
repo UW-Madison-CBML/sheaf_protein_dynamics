@@ -1,6 +1,7 @@
 import pandas as pd
 #from lib.pdb_api import 
 from pdb_api import load_motion_structures
+from motion_classifier_dataset import MotionClassifierDataset
 import os
 
 def main():
@@ -21,13 +22,14 @@ def main():
         
         residues = [res.strip().upper() for res in residues]
         motion_class = row["motion_class"]
-        res_df = pd.DataFrame({"residue": [self.__class__.AMINO_ACIDS.index(res) for res in residues], "motion_class":motion_class, "res_name":residues})
+        res_df = pd.DataFrame({"residue": [MotionClassifierDataset.AMINO_ACIDS.index(res) for res in residues], "motion_class":motion_class, "res_name":residues})
         conformation1_df = pd.DataFrame(conformation1, columns=["conf1_0", "conf1_1", "conf1_2"], index=res_df.index) 
         conformation2_df = pd.DataFrame(conformation2, columns=["conf2_0", "conf2_1", "conf2_2"], index=res_df.index) 
         df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
         
         groups.append(df)
-    print(len(groups))
+    print("motions: ", len(groups))
+    print("rows: ", len(df))
     df = pd.concat(groups, axis=0, ignore_index=True)
     df.to_csv("motions.csv")
     
