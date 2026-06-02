@@ -4,4 +4,5 @@ numpy
 beautifulsoup4
 biopython
 ruff
-
+scikit-learn
+matplotlib

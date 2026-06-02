@@ -1,6 +1,8 @@
+# TODO figure out how to get the lib files in the htcondor job as a py package
 """from lib.sheaf_classifier_dataset import MotionClassifierDataset
 from lib.sheaf_model import SheafMotionClassifier
 from lib.sheaf_utils import build_graph"""
+# for use them directly
 from sheaf_classifier_dataset import MotionClassifierDataset
 from sheaf_model import SheafMotionClassifier
 from sheaf_utils import build_graph
@@ -10,42 +12,25 @@ import torch
 import torch.nn.functional as F
 import wandb
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+from sklearn.metrics import ConfusionMatrixDisplay
 
 import os
-
-class RunningStats:
-    def __init__(self):
-        self.n = 0
-        self.mean = 0.0
-        self.m2 = 0.0
-
-    def push(self, x):
-        self.n += 1
-        delta = x - self.mean
-        self.mean += delta / self.n
-        delta2 = x - self.mean
-        self.m2 += delta * delta2
-
-    @property
-    def variance(self):
-        return self.m2 / (self.n - 1) if self.n > 1 else 0.0
-
-    @property
-    def std_dev(self):
-        return math.sqrt(self.variance)
+import math
 
 def precision_recall_f1(gt_indices, pred_indices, num_classes):
-
     # gt_indicies1: shape = (B), 0 <= min(), max() < num_classes
     # pred_indicies2: shape = (B), 0 <= min(), max() < num_classes
     # 0 <= i < num_classes
     # returns: precision, recall, f1. shape = num_classes
+    #          confusion_mat. shape = num_classes, num_classes
+
     confusion_mat = torch.einsum("bi, bj->ij", F.one_hot(pred_indices, num_classes=num_classes), F.one_hot(gt_indices, num_classes=num_classes))
     diag = confusion_mat[torch.arange(num_classes),torch.arange(num_classes)]
     recall = torch.nan_to_num(diag/confusion_mat.sum(dim=0), 0.0)
     precision = torch.nan_to_num(diag/confusion_mat.sum(dim=1), 0.0)
     f1 = torch.nan_to_num(2 * (precision * recall) / (precision + recall), 0.0)
-    return recall, precision, f1
+    return recall, precision, f1, confusion_mat
 
    
 
@@ -129,6 +114,8 @@ def train_motion_classifier():
         # validation
         model.eval()
         precision_recall_f1 = [] 
+        # confusion mat for summing
+        confusion_mat = np.zeros((len(MotionClassifierDataset.MOTION_CLASSES), len(MotionClassifierDataset.MOTION_CLASSES)), dtype=int)
         with torch.no_grad():
             for conformations1, conformations2, residues, motion_classes, lengths in val_loader:
                 optimizer.zero_grad()
@@ -150,17 +137,33 @@ def train_motion_classifier():
                 run.log({"val_loss":loss.cpu().item()})
                 preds = logits.cpu().argmax(dim=-1)
                 gt = motion_classes.cpu()
-                precision_recall_f1.append(torch.stack(precision_recall_f1(gt, preds, len(MotionClassifierDataset.MOTION_CLASSES)), dim=0))
-                
+                # get metrics and confusion mat 
+                metrics = precision_recall_f1(gt, preds, len(MotionClassifierDataset.MOTION_CLASSES))
+                # sum confusion mat
+                confusion_mat += metrics[3].numpy().astype(int)
+                # add rpf metrics 
+                precision_recall_f1.append(torch.stack(metrics[:3], dim=0))
+        # do a bunch of logging 
         precision_recall_f1 = torch.stack(precision_recall_f1, dim=0) # len(val_loader), 3, num_classes
-        precision_recall_f1 = torch.stack([precision_recall_f1.mean(dim=0), precision_recall_f1.std(dim=0)],dim=1)
+        precision_recall_f1 = torch.stack([precision_recall_f1.mean(dim=0), precision_recall_f1.std(dim=0)],dim=0)
         for i,agg in enumerate(["", "std"]):
             for j, metric in enumerate(["precision","recall","f1"]):
                 for k, motion_class in enumerate(MotionClassifierDataset.MOTION_CLASSES):
                     run.log({f"{motion_class}_{metric}_{agg}":precision_recall_f1(i,j,k)})
         
-                
-                
+        # do display for the confusion matrix 
+        fig, ax = plt.subplots(figsize=(10, 10))
+        disp = ConfusionMatrixDisplay(confusion_matrix=sum_confusion_mat, display_labels=dataset_val.phases)
+        disp.plot(cmap='Blues', ax=ax, values_format='d')
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right') 
+        run.log({"confusion_matrix": wandb.Image(fig), "confusion_matrix_table": wandb.plot.confusion_matrix(
+            probs=None,
+            y_true=torch.cat(all_labels).numpy(),
+            preds=torch.cat(all_preds).numpy(),
+            class_names=dataset_val.phases,
+        )}) 
+        plt.close(fig)
+ 
 
 
     
