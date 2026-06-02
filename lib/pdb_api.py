@@ -3,7 +3,7 @@ import pandas as pd
 import json
 from Bio import PDB, Align
 from Bio.SeqUtils import seq1
-
+import sys
 #TODO: so we need to load in the amino acid sequence from uniprot, and get the two structures from pdb. Then we align them    
     
 def load_pdb(pdb_plus_chain):
@@ -92,7 +92,7 @@ def load_motion_structures(pdb1, pdb2):
 
 # for temporary use
 if __name__ == "__main__":
-    print(load_motion_structures("2V66", "2V66"))
+    print(load_motion_structures(sys.argv[1], "2V66"))
     
 
     
