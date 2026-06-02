@@ -15,15 +15,22 @@ def retrieve_pdb_file(pdb_id):
     headers = {
         "User-Agent": "jlundsgaard@wisc.edu"
     }
+    file_path = os.path.abspath(f"{pdb_id}.pdb")
 
-    response = requests.get(url, headers=headers)
+    i = 0
+    attempts = 3
+    delay = 1
+    while(i < attempts):
+        if(response := requests.get(url, headers=headers)).status_code != 200:
+            time.sleep(delay)
+        else:
+            with open(file_path, "w") as file:
+                file.write(response.text)
+            return file_path
+        i += 1
+        delay *= 2
+    raise ValueError(f"{pdb_id} could not be accessed: {response.status_code}")
 
-    if response.status_code == 200:
-        with open(f"{pdb_id}.pdb", "w") as file:
-            file.write(response.text)
-    else:
-        print(f"Failed with status code: {response.status_code}")
-    return os.path.abspath(f"{pdb_id}.pdb")
 
 def load_pdb(pdb_plus_chain):
     # pdb ids are sometimes formatted like this
