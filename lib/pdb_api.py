@@ -4,8 +4,27 @@ import json
 from Bio import PDB, Align
 from Bio.SeqUtils import seq1
 import sys
+import time
+import os
 #TODO: so we need to load in the amino acid sequence from uniprot, and get the two structures from pdb. Then we align them    
     
+def retrieve_pdb_file(pdb_id):
+    url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
+    
+    # TODO remove in case of anonymization
+    headers = {
+        "User-Agent": "jlundsgaard@wisc.edu"
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        with open(f"{pdb_id}.pdb", "w") as file:
+            file.write(response.text)
+    else:
+        print(f"Failed with status code: {response.status_code}")
+    return os.path.abspath(f"{pdb_id}.pdb")
+
 def load_pdb(pdb_plus_chain):
     # pdb ids are sometimes formatted like this
     pdb_plus_chain = pdb_plus_chain.replace(":", "_")
@@ -16,9 +35,12 @@ def load_pdb(pdb_plus_chain):
     else:
         pdb_id, chain_id = pdb_plus_chain.split("_")
     pdb_id = pdb_id[:4]
-    pdbl = PDB.PDBList()
-    file_path = pdbl.retrieve_pdb_file(pdb_id, file_format="pdb", pdir=".")
-    
+
+    # uncomment if using biopython PDB for api access
+    #pdbl = PDB.PDBList()
+
+    file_path = retrieve_pdb_file(pdb_id)
+
     parser = PDB.PDBParser(QUIET=True)
     structure = parser.get_structure(pdb_id, file_path) 
     if chain_id:
@@ -92,7 +114,34 @@ def load_motion_structures(pdb1, pdb2):
 
 # for temporary use
 if __name__ == "__main__":
-    print(load_motion_structures(sys.argv[1], "2V66"))
+    pdb_list = [
+    '4cfo',
+    '4cfp',
+    '6d6f',
+    '4tws',
+    '5a1r',
+    '4ny4',
+    '3kjr',
+    '3k2h',
+    '1fit',
+    '6fit',
+    '2bjs',
+    '1odn',
+    '2qyo',
+    '4h4t',
+    '4h50',
+    '5tcg',
+    '5tci',
+    '4k4r',
+    '4k4p',
+    '5lcq',
+    '5n1n',
+    '3v4n',
+    '1ysl',
+    '4rzu',
+    '4rzu']
+    for i in pdb_list:
+        print(load_motion_structures(i, i))
     
 
     
