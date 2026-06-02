@@ -1,0 +1,18 @@
+# test_docker.sub
+
+docker_image = jenslundsgaard/sheaf_training:v1.3
+universe = docker
+
+shell = ls -R
+
+log = test_docker_$(Cluster)_$(Process).log
+error = test_docker_$(Cluster)_$(Process).err
+output = test_docker_$(Cluster)_$(Process).out
+
+request_cpus = 16
+request_memory = 64GB
+request_disk = 80GB
+
+
+
+queue 1
