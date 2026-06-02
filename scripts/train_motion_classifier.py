@@ -3,8 +3,8 @@
 from lib.sheaf_model import SheafMotionClassifier
 from lib.sheaf_utils import build_graph"""
 # for use them directly
-from sheaf_classifier_dataset import MotionClassifierDataset
-from sheaf_model import SheafMotionClassifier
+from motion_classifier_dataset import MotionClassifierDataset
+from motion_model import SheafMotionClassifier
 from sheaf_utils import build_graph
 import pandas as pd
 import numpy as np
@@ -44,6 +44,7 @@ def train_motion_classifier():
 
     #-----------------------------------------------------------
     # TODO set up wandb api
+    wandb.login(key=os.getenv("WANDB_KEY"))
     run = wandb.init(
         entity="jenslundsgaard7-uw-madison",
         project="SheafProtein",
@@ -59,12 +60,12 @@ def train_motion_classifier():
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     # load in data
     columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket', 'DrugBank_target']
-    free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"), columns=columns)
-    dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), columns=columns)
+    free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0, names=columns)
+    dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), header=0, names=columns)
     df = pd.concat([free_bound_df, dif_ligand_df], axis=0, ignore_index=True)
     # shuffle for randomness for now
     df = df.sample(frac=1, random_state=42).reset_index(drop=True) 
-    df_mask = df[df.index < int(len(df.index) * 0.3)]
+    df_mask = np.arange(len(df)) < int(0.3 * len(df))
     
     # set up validation split
     val_df = df[df_mask]

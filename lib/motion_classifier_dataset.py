@@ -23,7 +23,10 @@ class MotionClassifierDataset(Dataset):
         self.groups = []
         for idx, row in conformations_df.iterrows():
 
-            conformation1, conformation2, residues = load_motion_structures(row["pdb_1", "pdb_2"])
+            conformation1, conformation2, residues = load_motion_structures(row["pdb_1"], row["pdb_2"]) # list[atom],list[atom], list[str]
+            conformation1 = [atom.get_coord() for atom in conformation1]
+            conformation2 = [atom.get_coord() for atom in conformation2]
+            
             residues = [res.strip().upper() for res in residues]
             motion_class = row["motion_class"]
             res_df = pd.DataFrame({"residue": [self.__class__.AMINO_ACIDS.index(res) for res in residues], "motion_class":motion_class, "res_name":residues})

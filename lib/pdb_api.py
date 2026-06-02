@@ -7,7 +7,7 @@ from Bio.SeqUtils import seq1
 #TODO: so we need to load in the amino acid sequence from uniprot, and get the two structures from pdb. Then we align them    
     
 def load_pdb(pdb_plus_chain):
-    # pdb ids are be formatted like this
+    # pdb ids are sometimes formatted like this
     pdb_plus_chain = pdb_plus_chain.replace(":", "_")
     if("_" not in pdb_plus_chain):
         return ValueError(f"bad id: {pdb_plus_chain}")
@@ -36,6 +36,7 @@ def load_pdb(pdb_plus_chain):
 
 
 def load_motion_structures(pdb1, pdb2):
+    print(load_pdb(pdb1))
     atoms1, res_names1 = load_pdb(pdb1)
     atoms2, res_names2 = load_pdb(pdb2)
 
