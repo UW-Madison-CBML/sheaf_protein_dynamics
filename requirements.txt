@@ -6,3 +6,5 @@ biopython
 ruff
 scikit-learn
 matplotlib
+wandb
+huggingface_hub
