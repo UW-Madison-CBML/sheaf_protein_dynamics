@@ -63,6 +63,7 @@ def train_motion_classifier():
     free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0, names=columns)
     dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), header=0, names=columns)
     df = pd.concat([free_bound_df, dif_ligand_df], axis=0, ignore_index=True)
+    df = df.dropna() # there seems to be a bunch of junk rows at the end
     # shuffle for randomness for now
     df = df.sample(frac=1, random_state=42).reset_index(drop=True) 
     df_mask = np.arange(len(df)) < int(0.3 * len(df))
@@ -147,11 +148,12 @@ def train_motion_classifier():
         # do a bunch of logging 
         precision_recall_f1 = torch.stack(precision_recall_f1, dim=0) # len(val_loader), 3, num_classes
         precision_recall_f1 = torch.stack([precision_recall_f1.mean(dim=0), precision_recall_f1.std(dim=0)],dim=0)
-        for i,agg in enumerate(["", "std"]):
+        prf_dict = {}
+        for i,agg in enumerate(["", "_std"]):
             for j, metric in enumerate(["precision","recall","f1"]):
                 for k, motion_class in enumerate(MotionClassifierDataset.MOTION_CLASSES):
-                    run.log({f"{motion_class}_{metric}_{agg}":precision_recall_f1(i,j,k)})
-        
+                    prf_dict[f"{motion_class}_{metric}{agg}"] = precision_recall_f1(i,j,k)
+        run.log(prf_dict)   
         # do display for the confusion matrix 
         fig, ax = plt.subplots(figsize=(10, 10))
         disp = ConfusionMatrixDisplay(confusion_matrix = confusion_mat, display_labels = MotionClassifierDataset.MOTION_CLASSES)
