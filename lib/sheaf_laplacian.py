@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from sheaf_utils import eigenspectrum
 def unbatched_sheaf(sheaf, edges, T):
     E,_ , D, _ = sheaf.shape # E, 2, D, D: the two here is for both restriction maps; the first is for the map from node x_1 to e = (x_1, x_2), the other for x_2 to e = (x_1, x_2)
 
@@ -31,8 +30,6 @@ def sheaf_laplacian(sheaves, edges, paddings):
     #B,E,2, D, D = sheaves.shape 
     B, _, E, D, _ = sheaves.shape
     # alternatively we could do sheaves.shape = B, 2, E, D,D
-    # then we would need another list B, 2, E, 2 to store the edge indices, could also serve as the padding
-    #B, E, 2 = edges.shape, must be right padded by [-1,-1]
     B,T = paddings.shape
     cochain_sizes = paddings.sum(dim=1) * D # (B) cochain space is the direct sum of all the node spaces, so dim=D *t_i where t_i represents the number of nodes in sheaves i
     laplacian_paddings = torch.arange(T*D)[None, :] < cochain_sizes[:, None] 
@@ -49,16 +46,19 @@ def sheaf_laplacian(sheaves, edges, paddings):
     # B,E,2 = edges.shape
 
     sheaf_laplacian = torch.zeros((B, T, T, D, D), device=sheaves.device)
+    print("L shape: ", sheaf_laplacian.shape)
     edges_t = torch.transpose(edges,1,2)
     non_diag = torch.einsum("...xy,...zy->...xz", -1*sheaves, sheaves.roll(2,1)) # -F^T(u <= (u,z))* F(z <= (u,z)), roll the pair dimension
-    diag = torch.einsum("...xy,...zy->...xz", sheaves, sheaves) #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z))
+    #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z)) 
+
+    diag = torch.einsum("...xy,...zy->...xz", sheaves, sheaves)  # B, E, 2, D, D
     # TODO: need to make this safe for (-1, -1) padding edges
     sheaf_laplacian[torch.arange(B), edges_t[:,0], edges_t[:,1]] = non_diag[:,:,0,:,:]
     sheaf_laplacian[torch.arange(B), edges_t[:,1], edges_t[:,0]] = non_diag[:,:,1,:,:]
     diag_mask = edges[:,None,:,:] == torch.arange(T)[:,None,None] # B,T, E, 2
-    diag = diag * diag_mask[:,:,:,:,None, None] # B,T,E,2,D,D
+    diag = diag[:,None,:,:,:,:] * diag_mask[:,:,:,:,None, None] # B,T,E,2,D,D
     diag = diag.sum(dim=(2,3))
-    sheaf_laplacian[torch.arange(B), torch.arange(T)[None,:].repeat(B,1), torch.arange(T)[None,:].repeat(B,1)] = diag
+    sheaf_laplacian[torch.arange(B)[:,None], torch.arange(T)[None,:].repeat(B,1), torch.arange(T)[None,:].repeat(B,1)] = diag
     sheaf_laplacian = sheaf_laplacian.permute(0,1,3,2,4).reshape(B,T*D,T*D)
 
    
@@ -67,8 +67,9 @@ def sheaf_laplacian(sheaves, edges, paddings):
 
     return sheaf_laplacian, laplacian_paddings
 if __name__ == "__main__": 
-    B = 1
-
+    from sheaf_utils import eigenspectrum
+    
+     
     T = 3
     D = 3
     padding = torch.tensor([True,True,True])
@@ -78,11 +79,4 @@ if __name__ == "__main__":
     
     
     
-    #sheaves = torch.eye(D)[None,None,:,:].repeat(E,2,1,1) 
-    sheaves = torch.rand(E ,2,D,D)
-    print(sheaves)
-    print(edges)
     
-    lap, pad = sheaf_laplacian(sheaves.unsqueeze(0), edges.unsqueeze(0), padding.unsqueeze(0))
-    print(lap) 
-    print(eigenspectrum(lap,pad).real)

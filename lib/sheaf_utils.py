@@ -1,9 +1,8 @@
 import torch
-RESIDUES = []
 import torch.nn.functional as F
 import numpy as np
 from scipy.spatial import distance_matrix
-from torch_cluster import radius_graph
+#from torch_cluster import radius_graph
 
 def build_graph(conformations1, conformations2, padding, epsilon):
     """

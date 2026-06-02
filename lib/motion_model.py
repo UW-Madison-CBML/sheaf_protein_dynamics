@@ -5,8 +5,9 @@ from sheaf_laplacian import sheaf_laplacian
 from sheaf_utils import eigenspectrum
 # TODO add hugging face pytorchmixin
 class SheafMotionClassifier(torch.nn.Module):  
-    def __init__(self, node_features, stalk_dimensions,lstm_hidden_dim=8, num_classes=5):
-        self.hidden_dim = 64
+    def __init__(self, node_features, stalk_dimensions,lstm_hidden_dim=8, num_classes=5, hidden_dim=64):
+        super().__init__()
+        self.hidden_dim = hidden_dim
         self.node_features = node_features
         self.stalk_dimensions = stalk_dimensions 
         # MOTION_CLASSES = ["PE","PS","PF","PC","OM"]
@@ -39,9 +40,10 @@ class SheafMotionClassifier(torch.nn.Module):
         sheaves = F.relu(self.lin3(graphs)) #B,2,2*E,stalk_dim^2
         # reshape the batches of two sheaves for each conformation into the batches dimension
         sheaves = sheaves.reshape(B*2,E,2,self.stalk_dimensions, self.stalk_dimensions)
-        eigenspectra = eigenspectrum(*sheaf_laplacian(sheaves,edge_padding)).reshape(B,2,T) # B,2,T
+        edges = edges.reshape(B*2, E, 2)
+        eigenspectra = eigenspectrum(*sheaf_laplacian(sheaves,edges,node_lengths[:, None] < torch.arange(T)[None,:])).reshape(B,2,T) # B,2,T
         eigenspectra = eigenspectra.permute(0,2,1) # B, T, 2
-        seqs = pack_padded_sequence(eigenspectra, node_lengths)
+        seqs = pack_padded_sequence(eigenspectra, node_lengths, batch_first=True)
         _, (h, _) = self.lstm(seqs) # h.shape = 2, B, lstm_hidden_dim
         h = h.permute(1, 2, 0).reshape(B, 2 * self.lstm_hidden_dim)
         out = F.relu(self.lin4(h))
@@ -55,5 +57,23 @@ class SheafMotionClassifier(torch.nn.Module):
         
         
         
-        
-        
+# test if gradients are stable     
+if __name__ == "__main__":
+    B = 1 
+    T = 3
+    E = 2 
+    model = SheafMotionClassifier(1, 1, lstm_hidden_dim=8, num_classes=5, hidden_dim=8)
+    node_features = torch.ones(B, 2, T, 1)
+    edges = torch.tensor([[ [[1,2],[0,1]], [[1,2],[0,1]] ]])
+    node_lengths = torch.tensor([T], dtype=torch.int)
+    edge_paddings = torch.ones((B,E), dtype=torch.bool)
+
+    print(edges.shape)
+    loss = torch.nn.CrossEntropyLoss()(model(node_features, edges, node_lengths, edge_paddings), torch.tensor([1], dtype=torch.long))
+    loss.backward() 
+    print(model.lin1.weight.grad)
+    
+    print(model.lin2.weight.grad)
+    print(model.lin3.weight.grad)
+    print(model.lin4.weight.grad)
+    print(model.lstm.weight.grad)
