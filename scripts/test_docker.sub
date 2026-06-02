@@ -3,15 +3,15 @@
 docker_image = jenslundsgaard/sheaf_training:v1.3
 universe = docker
 
-shell = ls -R
+shell = ./test_docker.sh
 
 log = test_docker_$(Cluster)_$(Process).log
 error = test_docker_$(Cluster)_$(Process).err
 output = test_docker_$(Cluster)_$(Process).out
-
-request_cpus = 16
-request_memory = 64GB
-request_disk = 80GB
+transfer_input_files = test_docker.sh
+request_cpus = 1
+request_memory = 8GB
+request_disk = 8GB
 
 
 
