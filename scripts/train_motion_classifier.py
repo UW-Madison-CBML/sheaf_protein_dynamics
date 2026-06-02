@@ -153,15 +153,10 @@ def train_motion_classifier():
         
         # do display for the confusion matrix 
         fig, ax = plt.subplots(figsize=(10, 10))
-        disp = ConfusionMatrixDisplay(confusion_matrix=sum_confusion_mat, display_labels=dataset_val.phases)
+        disp = ConfusionMatrixDisplay(confusion_matrix = confusion_mat, display_labels = MotionClassifierDataset.MOTION_CLASSES)
         disp.plot(cmap='Blues', ax=ax, values_format='d')
         plt.setp(ax.get_xticklabels(), rotation=45, ha='right') 
-        run.log({"confusion_matrix": wandb.Image(fig), "confusion_matrix_table": wandb.plot.confusion_matrix(
-            probs=None,
-            y_true=torch.cat(all_labels).numpy(),
-            preds=torch.cat(all_preds).numpy(),
-            class_names=dataset_val.phases,
-        )}) 
+        run.log({"confusion_matrix": wandb.Image(fig)}) 
         plt.close(fig)
  
 

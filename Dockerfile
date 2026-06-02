@@ -6,6 +6,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir torch-cluster -f https://data.pyg.org/whl/torch-2.9.0+cu128.html
 
 COPY lib/ ./lib/
 

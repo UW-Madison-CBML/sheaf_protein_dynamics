@@ -1,7 +1,8 @@
 import torch
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
-from lib import sheaf_laplacian,eigenspectrum
+from sheaf_laplacian import sheaf_laplacian
+from sheaf_utils import eigenspectrum
 # TODO add hugging face pytorchmixin
 class SheafMotionClassifier(torch.nn.Module):  
     def __init__(self, node_features, stalk_dimensions,lstm_hidden_dim=8, num_classes=5):
