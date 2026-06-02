@@ -1,5 +1,4 @@
 import torch
-from pdb_api import load_motion_structures
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 import pandas as pd
@@ -18,23 +17,11 @@ class MotionClassifierDataset(Dataset):
     def __init__(self, conformations_df):
         # load each protein and get it's 3d structure sequence and amino acid sequence 
         # self.df:
-        # protein_id, residue, conf1_0 .. conf2_2, ligand, motion_class, etc.
-        # protein_id = pdb_1 + pdb_2 ?
-        self.groups = []
-        for idx, row in conformations_df.iterrows():
-
-            conformation1, conformation2, residues = load_motion_structures(row["pdb_1"], row["pdb_2"]) # list[atom],list[atom], list[str]
-            conformation1 = [atom.get_coord() for atom in conformation1]
-            conformation2 = [atom.get_coord() for atom in conformation2]
-            
-            residues = [res.strip().upper() for res in residues]
-            motion_class = row["motion_class"]
-            res_df = pd.DataFrame({"residue": [self.__class__.AMINO_ACIDS.index(res) for res in residues], "motion_class":motion_class, "res_name":residues})
-            conformation1_df = pd.DataFrame(conformation1, columns=["conf1_0", "conf1_1", "conf1_2"], index=res_df.index) 
-            conformation2_df = pd.DataFrame(conformation2, columns=["conf2_0", "conf2_1", "conf2_2"], index=res_df.index) 
-            df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
-            
-            self.groups.append(df)
+        # motion_id, residue, conf1_0 .. conf2_2, ligand, motion_class, etc.
+        # motion_id = pdb_1 + pdb_2 these will serve as UUID's for protein motions
+        self.df = conformations_df
+        self.groups = conformations_df.groupby('motion_id')
+        
 
     def __len__(self):
         return len(self.groups)

@@ -59,10 +59,6 @@ def train_motion_classifier():
     
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     # load in data
-    columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket', 'DrugBank_target']
-    free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0, names=columns)
-    dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), header=0, names=columns)
-    df = pd.concat([free_bound_df, dif_ligand_df], axis=0, ignore_index=True)
     df = df.dropna() # there seems to be a bunch of junk rows at the end
     # shuffle for randomness for now
     df = df.sample(frac=1, random_state=42).reset_index(drop=True) 

@@ -8,7 +8,8 @@ universe = docker
 #  commands) and arguments to be passed to jobs.
 #  $(Process) will be a integer number for each job, starting with "0"
 #  and increasing for the relevant number of jobs.
-shell = ./train_motion_classifier.sh $(ablation)
+shell = ./train_motion_classifier.sh 
+#$(ablation)
 
 # Specify the name of the log, standard error, and standard output (or
 # "screen output") files. Wherever you see $(Cluster), HTCondor will insert the
@@ -21,7 +22,7 @@ when_to_transfer_output = ON_EXIT_OR_EVICT
 Requirements = (Target.HasCHTCStaging == true)
 #require_gpus = (DriverVersion >= 10.1)
 # Transfer our executable script
-transfer_input_files = train_motion_classifier.sh, train_motion_classifier.py, ../api_keys.txt, file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/free_bound_pocket.csv, file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/bound_dif_ligand_pocket.csv, ../lib/, ../requirements.txt
+transfer_input_files = train_motion_classifier.sh, train_motion_classifier.py, ../api_keys.txt, file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/motions.csv, ../lib/
 gpus_minimum_capability = 7.0
 requirements= Machine=="bhaskargpu4000.chtc.wisc.edu"
 
