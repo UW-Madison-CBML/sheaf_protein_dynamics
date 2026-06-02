@@ -27,7 +27,7 @@ class MotionClassifierDataset(Dataset):
         return len(self.groups)
 
     def __getitem__(self, idx):
-        df = self.groups[idx]
+        _, df = list(self.groups)[idx]
         return torch.from_numpy(df[["conf1_0", "conf1_1", "conf1_2"]].to_numpy()), torch.from_numpy(df[["conf2_0", "conf2_1", "conf2_2"]].to_numpy()), torch.tensor(df['residue'].to_list(),dtype=torch.long), torch.tensor(self.__class__.MOTION_CLASSES.index(df.iloc[0]["motion_class"]), dtype=torch.long)
     @staticmethod
     def pad_collate(batch):

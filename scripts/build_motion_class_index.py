@@ -1,6 +1,7 @@
 import pandas as pd
 #from lib.pdb_api import 
 from pdb_api import load_motion_structures
+import os
 
 def main():
     columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket', 'DrugBank_target']

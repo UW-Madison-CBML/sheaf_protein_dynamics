@@ -17,9 +17,9 @@ transfer_input_files = build_motion_class_index.sh, build_motion_class_index.py,
 transfer_output_files = motions.csv
 transfer_output_remaps = "motions.csv = file:///staging/groups/bhaskar_group/sheaf_protein_dynamics/motions.csv;"
 
-request_cpus = 4
-request_memory = 64GB
-request_disk = 64GB
+request_cpus = 1
+request_memory = 32GB
+request_disk = 32GB
 
 
 
