@@ -8,3 +8,5 @@ WANDB_KEY=$(tail -n 1 api_keys.txt)
 export WANDB_KEY=$WANDB_KEY
 
 python train_motion_classifier.py
+
+rm *.ent
