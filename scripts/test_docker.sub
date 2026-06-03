@@ -1,6 +1,6 @@
 # test_docker.sub
 
-docker_image = jenslundsgaard/sheaf_training:v1.3
+docker_image = jenslundsgaard/sheaf_training:v2.0
 universe = docker
 
 shell = ./test_docker.sh
