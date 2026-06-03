@@ -5,16 +5,25 @@ from motion_classifier_dataset import MotionClassifierDataset
 import os
 
 def main():
-    columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket', 'DrugBank_target']
-    free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0, names=columns)
-    dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), header=0, names=columns)
+    # the last column seems to be empty 
+    columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket']
+    free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0)
+    dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), header=0)
+    # drop that last col if it is all empty
+    free_bound_df = free_bound_df.dropna(axis=1, how="all")
+    dif_ligand_df = dif_ligand_df.dropna(axis=1, how="all")
+    # rename the columsn
+    free_bound_df.columns = columns
+    dif_ligand_df.columns = columns
 
     df = pd.concat([free_bound_df, dif_ligand_df], axis=0, ignore_index=True)
-    df = df.dropna()
+    # TODO what other of these features could be incorporated into the pipeline
+    df = df[["pdb_1", "pdb_2", "motion_class"]] # remove unecessary rows before we dropna
     df["motion_id"] = df['pdb_1'] + df['pdb_2']
-    conformations_df = df
+    df = df.dropna()
+
     groups = []
-    for idx, row in conformations_df.iterrows():
+    for idx, row in df.iterrows():
 
         conformation1, conformation2, residues = load_motion_structures(row["pdb_1"], row["pdb_2"]) # list[atom],list[atom], list[str]
         conformation1 = [atom.get_coord() for atom in conformation1]
@@ -26,9 +35,9 @@ def main():
         res_df = pd.DataFrame({"residue": [MotionClassifierDataset.AMINO_ACIDS.index(res) for res in residues], "motion_class":motion_class, "motion_id": motion_id, "res_name":residues})
         conformation1_df = pd.DataFrame(conformation1, columns=["conf1_0", "conf1_1", "conf1_2"], index=res_df.index) 
         conformation2_df = pd.DataFrame(conformation2, columns=["conf2_0", "conf2_1", "conf2_2"], index=res_df.index) 
-        df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
+        conformation_df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
         
-        groups.append(df)
+        groups.append(conformation_df)
     print("motions: ", len(groups))
     df = pd.concat(groups, axis=0, ignore_index=True)
     print("rows: ", len(df))
