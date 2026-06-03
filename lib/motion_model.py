@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence
 from sheaf_laplacian import sheaf_laplacian
 from sheaf_utils import eigenspectrum
+from torch.autograd.gradcheck import gradcheck
 # TODO add hugging face pytorchmixin
 class SheafMotionClassifier(torch.nn.Module):  
     def __init__(self, node_features, stalk_dimensions,lstm_hidden_dim=8, num_classes=5, hidden_dim=64):
@@ -63,17 +64,10 @@ if __name__ == "__main__":
     T = 3
     E = 2 
     model = SheafMotionClassifier(1, 1, lstm_hidden_dim=8, num_classes=5, hidden_dim=8)
-    node_features = torch.ones(B, 2, T, 1)
+    node_features = torch.ones(B, 2, T, 1, requires_grad=True).to(torch.double)
     edges = torch.tensor([[ [[1,2],[0,1]], [[1,2],[0,1]] ]])
     node_lengths = torch.tensor([T], dtype=torch.int)
     edge_paddings = torch.ones((B,E), dtype=torch.bool)
 
-    print(edges.shape)
-    loss = torch.nn.CrossEntropyLoss()(model(node_features, edges, node_lengths, edge_paddings), torch.tensor([1], dtype=torch.long))
-    loss.backward() 
-    print(model.lin1.weight.grad)
+    print(gradcheck(model.forward, (node_features, edges, node_lengths, edge_paddings)))
     
-    print(model.lin2.weight.grad)
-    print(model.lin3.weight.grad)
-    print(model.lin4.weight.grad)
-    print(model.lstm.weight.grad)

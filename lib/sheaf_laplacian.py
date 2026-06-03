@@ -68,7 +68,6 @@ def sheaf_laplacian(sheaves, edges, paddings):
 
     return sheaf_laplacian, laplacian_paddings
 if __name__ == "__main__": 
-    from sheaf_utils import eigenspectrum
      
     T = 3
     D = 3
@@ -78,7 +77,7 @@ if __name__ == "__main__":
     paddings = torch.tensor([[True, True]])
     sheaves = torch.rand(E ,2,D,D)
 
-    print(gradcheck(sheaf_laplacian, (sheaves.unsqueeze(0), edges.unsqueeze(0), padding.unsqueeze(0))))
+    print(sheaf_laplacian, (sheaves.unsqueeze(0), edges.unsqueeze(0), paddings.unsqueeze(0)))
     
         
     
