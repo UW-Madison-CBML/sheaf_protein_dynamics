@@ -1,17 +1,20 @@
 import pandas as pd
-#from lib.pdb_api import 
+import sys
+# for now if  on chtc comment this
+sys.path.append("../lib")
 from pdb_api import load_motion_structures
 from motion_classifier_dataset import MotionClassifierDataset
 import os
 
 def main():
-    # the last column seems to be empty 
+    # the last two columns seem to be empty
     columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket']
     free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0)
     dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), header=0)
-    # drop that last col 
-    free_bound_df = free_bound_df.iloc[:,:-1]
+    # drop the last cols
+    free_bound_df = free_bound_df.iloc[:,:-2]
     dif_ligand_df = dif_ligand_df.iloc[:,:-1]
+    print(free_bound_df.columns, " ", columns)
     # rename the columns
     free_bound_df.columns = columns
     dif_ligand_df.columns = columns
