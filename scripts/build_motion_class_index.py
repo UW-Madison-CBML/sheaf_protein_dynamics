@@ -9,10 +9,10 @@ def main():
     columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket']
     free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0)
     dif_ligand_df = pd.read_csv(os.path.abspath("bound_dif_ligand_pocket.csv"), header=0)
-    # drop that last col if it is all empty
-    free_bound_df = free_bound_df.dropna(axis=1, how="all")
-    dif_ligand_df = dif_ligand_df.dropna(axis=1, how="all")
-    # rename the columsn
+    # drop that last col 
+    free_bound_df = free_bound_df.iloc[:,:-1]
+    dif_ligand_df = dif_ligand_df.iloc[:,:-1]
+    # rename the columns
     free_bound_df.columns = columns
     dif_ligand_df.columns = columns
 
