@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.autograd.gradcheck import gradcheck
 def unbatched_sheaf(sheaf, edges, T):
     E,_ , D, _ = sheaf.shape # E, 2, D, D: the two here is for both restriction maps; the first is for the map from node x_1 to e = (x_1, x_2), the other for x_2 to e = (x_1, x_2)
 
@@ -68,15 +69,18 @@ def sheaf_laplacian(sheaves, edges, paddings):
     return sheaf_laplacian, laplacian_paddings
 if __name__ == "__main__": 
     from sheaf_utils import eigenspectrum
-    
      
     T = 3
     D = 3
-    padding = torch.tensor([True,True,True])
+
     edges = torch.tensor([[0,1], [1,2]], dtype=torch.int) # 1, 2
     E = edges.shape[0]
-    #edges = F.pad(edges, (0, E - edges.shape[0], 0, 0), "constant", -1) # E, 2
+    paddings = torch.tensor([[True, True]])
+    sheaves = torch.rand(E ,2,D,D)
+
+    print(gradcheck(sheaf_laplacian, (sheaves.unsqueeze(0), edges.unsqueeze(0), padding.unsqueeze(0))))
     
+        
     
     
     
