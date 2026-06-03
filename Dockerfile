@@ -1,12 +1,13 @@
 # Dockerfile for neural network, protein dynamics simulations will be done with a gromacs image
-FROM pytorch/pytorch:2.9.0-cuda12.8-cudnn9-runtime
+FROM nvcr.io/nvidia/pytorch:24.03-py3
 
 WORKDIR /app
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir torch-cluster -f https://data.pyg.org/whl/torch-2.9.0+cu128.html
+# TODO figure this out
+#RUN pip install --no-cache-dir torch-cluster -f https://data.pyg.org/whl/torch-2.9.0+cu128.html
 
 COPY lib/ ./lib/
 

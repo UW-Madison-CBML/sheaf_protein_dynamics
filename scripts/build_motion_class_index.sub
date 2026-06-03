@@ -1,6 +1,6 @@
 # build_motion_class_index.sub
 
-docker_image = jenslundsgaard/sheaf_training:v1.6
+docker_image = jenslundsgaard/sheaf_training:v2.0
 
 universe = docker
 
