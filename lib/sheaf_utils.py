@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from scipy.spatial import distance_matrix
-#from torch_cluster import radius_graph
 
 def build_graph(conformations1, conformations2, padding, epsilon):
     """
@@ -16,7 +15,8 @@ def build_graph(conformations1, conformations2, padding, epsilon):
         padding: Dynamic padding mask.
         epsilon: Learned max distance for edge between residues.
     Return:
-        :out_list: Stacked adjacency list.
+        out_list: Stacked adjacency lists.
+        out_padding: Boolean list True if corresponding edge is padded False otherwise.
 
     """
     # padding = (B,T)
@@ -28,10 +28,13 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     # TODO implement some other form of predicate to determine existence of edges
     adjacency = (dist_mat < epsilon) & (padding[:,None, None, :] & padding[:, None, :, None])
 
-    # Remove self-loops
-    # TODO also remove duplicates; the data structure I'm using in the sheaf laplacian is edges = (B,E,2) a set of unique edges whose indices are < T, and >= 0. Padding is done with the pairs (-1, -1). The sheaves or sets of restriction maps are of shape (B,E,2,D,D) where at index [:,i] we have the 2 restriction maps from node edges[:,i,0] to edge edges[:,i] and from node edges[:,i,1] to edges[:,i]
-    diag_mask = torch.eye(T, dtype=torch.bool, device=adjacency.device)
-    adjacency = adjacency & ~diag_mask[None, None, :, :]
+    # Remove self-loops and symmetric duplicates by keeping only upper triangle
+    # The data structure I'm using in the sheaf laplacian is edges = (B,E,2) a set 
+    # of unique edges whose indices are < T, and >= 0. Padding is done with the pairs (-1, -1). 
+    # The sheaves or sets of restriction maps are of shape (B,E,2,D,D) where at index [:,i] we have 
+    # the 2 restriction maps from node edges[:,i,0] to edge edges[:,i] and from node edges[:,i,1] to edges[:,i]
+    triu_mask = torch.triu(torch.ones((T,T), dtype=torch.bool, device=adjacency.device), diagonal=1)
+    adjacency = adjacency & triu_mask[None, None, :, :]
 
     #if we index restriction maps via adjacency mats 
     #return adjacency
@@ -62,8 +65,9 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     c_idx = torch.arange(2)[None, :, None] # [1, 2, 1]
 
     # Gather edges
-    out_list = edges[b_idx, c_idx, indices] # B,2, E, 2
+    out_list = edges[b_idx, c_idx, indices] # [B,2, E, 2]
     out_padding = (out_list[:,:,:,0] == -1) | (out_list[:,:,:,1] == -1)
+    print(out_padding)
     return out_list, out_padding
    
      
@@ -101,7 +105,7 @@ if __name__ == "__main__":
     conformations2 = torch.randn((B, TD, 3))
     padding_lengths = torch.randint(1, TD + 1, (B,))
     padding = torch.arange(TD)[None, :] < padding_lengths[:, None] 
-    out_edges = build_graph(conformations1, conformations2, padding, 1.0)
+    out_edges = build_graph(conformations1, conformations2, padding, 1.0)[0]
     edge_counts = (out_edges[..., 0] != -1).sum(dim=2)
 
     print("Test 1 sparse")
@@ -112,7 +116,7 @@ if __name__ == "__main__":
     
     print("")
 
-    out_edges = build_graph(conformations1, conformations2, padding, 10.0)
+    out_edges = build_graph(conformations1, conformations2, padding, 10.0)[0]
     edge_counts = (out_edges[..., 0] != -1).sum(dim=2)
 
     print("Test 2 fully connected")
