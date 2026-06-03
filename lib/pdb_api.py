@@ -18,18 +18,19 @@ def retrieve_pdb_file(pdb_id):
     file_path = os.path.abspath(f"{pdb_id}.pdb")
 
     i = 0
-    attempts = 3
+    attempts = 8
     delay = 1
     while(i < attempts):
         if(response := requests.get(url, headers=headers)).status_code != 200:
             time.sleep(delay)
+            print(f"waiting {delay} seconds")
         else:
             with open(file_path, "w") as file:
                 file.write(response.text)
             return file_path
         i += 1
-        delay *= 2
-    raise ValueError(f"{pdb_id} could not be accessed: {response.status_code}")
+        delay *= 1.3
+    raise ValueError(f"{pdb_id} could not be accessed at {url}: error code {response.status_code}")
 
 
 def load_pdb(pdb_plus_chain):
