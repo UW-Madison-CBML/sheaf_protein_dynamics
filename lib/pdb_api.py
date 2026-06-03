@@ -8,14 +8,14 @@ import time
 import os
 #TODO: so we need to load in the amino acid sequence from uniprot, and get the two structures from pdb. Then we align them    
     
-def retrieve_pdb_file(pdb_id):
-    url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
+def retrieve_pdb_file(pdb_id, file_format = "cif"):
+    url = f"https://files.rcsb.org/download/{pdb_id.lower()}.{file_format}"
     
     # TODO remove in case of anonymization
     headers = {
         "User-Agent": "jlundsgaard@wisc.edu"
     }
-    file_path = os.path.abspath(f"{pdb_id}.pdb")
+    file_path = os.path.abspath(f"{pdb_id}.{file_format}")
 
     i = 0
     attempts = 8
@@ -23,7 +23,6 @@ def retrieve_pdb_file(pdb_id):
     while(i < attempts):
         if(response := requests.get(url, headers=headers)).status_code != 200:
             time.sleep(delay)
-            print(f"waiting {delay} seconds")
         else:
             with open(file_path, "w") as file:
                 file.write(response.text)
@@ -42,14 +41,17 @@ def load_pdb(pdb_plus_chain):
         chain_id = ""
     else:
         pdb_id, chain_id = pdb_plus_chain.split("_")
-    pdb_id = pdb_id[:4]
+    pdb_id = pdb_id[:4].upper()
 
     # uncomment if using biopython PDB for api access
     #pdbl = PDB.PDBList()
+    #file_path = pdbl.retrieve_pdb_file(pdb_id)
 
     file_path = retrieve_pdb_file(pdb_id)
 
-    parser = PDB.PDBParser(QUIET=True)
+    # uncomment if using old .pdb format
+    # parser = PDB.PDBParser(QUIET=True)
+    parser = PDB.MMCIFParser(QUIET=True) 
     structure = parser.get_structure(pdb_id, file_path) 
     if chain_id:
         chain = structure[0][chain_id.upper()] 
