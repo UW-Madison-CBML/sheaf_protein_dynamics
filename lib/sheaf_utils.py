@@ -67,7 +67,8 @@ def build_graph(conformations1, conformations2, padding, epsilon, adjacency_matr
 
     # Gather edges
     out_list = edges[b_idx, c_idx, indices] # [B,2, E, 2]
-    out_padding = (out_list[:,:,:,0] == -1) | (out_list[:,:,:,1] == -1)
+    # out list should be equal along the pair dims
+    out_lengths = ((out_list[:,0,:,0] == -1) | (out_list[:,0,:,1] == -1)).sum(dim=-1) # B, max < E
     return out_list, out_padding
    
      

@@ -24,16 +24,17 @@ def unbatched_sheaf(sheaf, edges, T):
     
 # implement the sheaf laplacian here in pytorch
 # batched, if you have pairs of sheaves (i.e. for classification, cat them along the batch dim
-def sheaf_laplacian(sheaves, edges, paddings):
-    # let's say paddings is torch.bool of shape B,T
+def sheaf_laplacian(sheaves, edges, lengths):
+    # let's say lengths is torch.bool of shape B,T
     # B = batch_size
     # T = padded number of residues in the protein sequence
     #B,E,2, D, D = sheaves.shape 
     B, _, E, D, _ = sheaves.shape
     # alternatively we could do sheaves.shape = B, 2, E, D,D
-    B,T = paddings.shape
-    cochain_sizes = paddings.sum(dim=1) * D # (B) cochain space is the direct sum of all the node spaces, so dim=D *t_i where t_i represents the number of nodes in sheaves i
-    laplacian_paddings = torch.arange(T*D)[None, :] < cochain_sizes[:, None] 
+    # B 
+    B  = lengths.shape
+    #cochain_sizes = lengths.sum(dim=1) * D # (B) cochain space is the direct sum of all the node spaces, so dim=D *t_i where t_i represents the number of nodes in sheaves i
+    laplacian_lengths = lengths * D
     
     # laplacian definition:
     # F is the sheaves
@@ -83,13 +84,13 @@ def sheaf_laplacian(sheaves, edges, paddings):
     sheaf_laplacian = sheaf_laplacian.permute(0,1,3,2,4).reshape(B,T*D,T*D)
 
     # Get rid of padded residues
-    cochain_mask = paddings.repeat_interleave(D, dim=1) # B, T*D
+    cochain_mask = lengths.repeat_interleave(D, dim=1) # B, T*D
     final_mask = cochain_mask[:, :, None] & cochain_mask[:, None, :] # B, T*D, T*D
 
     sheaf_laplacian = torch.where(final_mask, sheaf_laplacian, 0.0)
 
 
-    return sheaf_laplacian, laplacian_paddings
+    return sheaf_laplacian, laplacian_lengths
 
 def sheaf_laplacian_adjacency(sheaves, padding):
     # sheaves: B,T, T, D,D sheaves as an adjacency matrix of restriction maps d x d
