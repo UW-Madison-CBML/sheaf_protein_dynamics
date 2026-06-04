@@ -46,8 +46,8 @@ def sheaf_laplacian(sheaves, edges, paddings):
     B,E,_ , D, _ = sheaves.shape #B, E, 2, D, D: the two here is for both restriction maps; the first is for the map from node x_1 to e = (x_1, x_2), the other for x_2 to e = (x_1, x_2)
     # B,E,2 = edges.shape
 
-    sheaf_laplacian = torch.zeros((B, T, T, D, D), device=sheaves.device)
-    print("L shape: ", sheaf_laplacian.shape)
+    sheaf_laplacian = torch.zeros((B, T, T, D, D), device=sheaves.device, dtype=sheaves.dtype)
+    # print("L shape: ", sheaf_laplacian.shape)
     edges_t = torch.transpose(edges,1,2)
     non_diag = torch.einsum("...xy,...zy->...xz", -1*sheaves, sheaves.roll(2,1)) # -F^T(u <= (u,z))* F(z <= (u,z)), roll the pair dimension
     #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z)) 
