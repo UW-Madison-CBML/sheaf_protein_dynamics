@@ -16,7 +16,7 @@ def build_graph(conformations1, conformations2, padding, epsilon):
         epsilon: Learned max distance for edge between residues.
     Return:
         out_list: Stacked adjacency lists.
-        out_padding: Boolean list True if corresponding edge is padded False otherwise.
+        out_padding: Nested lists False if node is padded, True otherwise.
 
     """
     # padding = (B,T)
@@ -67,7 +67,6 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     # Gather edges
     out_list = edges[b_idx, c_idx, indices] # [B,2, E, 2]
     out_padding = (out_list[:,:,:,0] == -1) | (out_list[:,:,:,1] == -1)
-    print(out_padding)
     return out_list, out_padding
    
      
@@ -106,10 +105,11 @@ if __name__ == "__main__":
     padding_lengths = torch.randint(1, TD + 1, (B,))
     padding = torch.arange(TD)[None, :] < padding_lengths[:, None] 
     out_edges = build_graph(conformations1, conformations2, padding, 1.0)[0]
+    out_padding = build_graph(conformations1, conformations2, padding, 1.0)[1]
     edge_counts = (out_edges[..., 0] != -1).sum(dim=2)
 
     print("Test 1 sparse")
-    print("Padding:", padding)
+    print("Padding out:", out_padding)
     print("Conformations1:", conformations1)
     print("Edges out:", out_edges)
     print("Num valid edges per graph:", edge_counts)
@@ -117,10 +117,11 @@ if __name__ == "__main__":
     print("")
 
     out_edges = build_graph(conformations1, conformations2, padding, 10.0)[0]
+    out_padding = build_graph(conformations1, conformations2, padding, 10.0)[1]
     edge_counts = (out_edges[..., 0] != -1).sum(dim=2)
 
     print("Test 2 fully connected")
-    print("Padding:", padding)
+    print("Padding out:", out_padding)
     print("Conformations1:", conformations1)
     print("Edges out:", out_edges)
     print("Num valid edges per graph:", edge_counts)

@@ -53,31 +53,56 @@ def sheaf_laplacian(sheaves, edges, paddings):
     #sum_{u~z} F^T(u <= (u,z)) F(u <= (u,z)) 
 
     diag = torch.einsum("...xy,...zy->...xz", sheaves, sheaves)  # B, E, 2, D, D
-    # TODO: need to make this safe for (-1, -1) padding edges
-    sheaf_laplacian[torch.arange(B), edges_t[:,0], edges_t[:,1]] = non_diag[:,:,0,:,:]
-    sheaf_laplacian[torch.arange(B), edges_t[:,1], edges_t[:,0]] = non_diag[:,:,1,:,:]
+
+    # Handle [-1,-1] padding by zero-masking padded edge features and redirecting to [0,0]
+
+    # create boolean mask of valid edges
+    valid_edge_mask = (edges[...,0] != -1) & (edges[...,1] != -1)
+
+    # compute non-diagonal elements
+    non_diag = torch.einsum("...xy,...zy->...xz", -1 * sheaves, sheaves.roll(2,1))
+
+    # zero out non-diagonal features for fake edges 
+    non_diag = torch.where(valid_edge_mask[:, :, None, None, None], non_diag, 0.0)
+
+    # temporarily replace -1 with 0 for indexing
+    safe_edges_t = torch.where(edges_t != -1, edges_t, 0)
+
+    sheaf_laplacian[torch.arange(B), safe_edges_t[:,0], safe_edges_t[:,1]] = non_diag[:,:,0,:,:]
+    sheaf_laplacian[torch.arange(B), safe_edges_t[:,1], safe_edges_t[:,0]] = non_diag[:,:,1,:,:]
+
+    # Compute diagonal elts
+    diag = torch.einsum("...xy,...zy->...xz", sheaves, sheaves) # B, E, 2, D, D
+    diag = torch.where(valid_edge_mask[:,:,None,None,None], diag, 0.0) # Mask fake edges
+
     diag_mask = edges[:,None,:,:] == torch.arange(T)[:,None,None] # B,T, E, 2
     diag = diag[:,None,:,:,:,:] * diag_mask[:,:,:,:,None, None] # B,T,E,2,D,D
     diag = diag.sum(dim=(2,3))
+    
     sheaf_laplacian[torch.arange(B)[:,None], torch.arange(T)[None,:].repeat(B,1), torch.arange(T)[None,:].repeat(B,1)] = diag
     sheaf_laplacian = sheaf_laplacian.permute(0,1,3,2,4).reshape(B,T*D,T*D)
 
-   
-    
+    # Get rid of padded residues
+    cochain_mask = paddings.repeat_interleave(D, dim=1) # B, T*D
+    final_mask = cochain_mask[:, :, None] & cochain_mask[:, None, :] # B, T*D, T*D
+
+    sheaf_laplacian = torch.where(final_mask, sheaf_laplacian, 0.0)
 
 
     return sheaf_laplacian, laplacian_paddings
+
+
 if __name__ == "__main__": 
      
     T = 3
     D = 3
 
-    edges = torch.tensor([[0,1], [1,2]], dtype=torch.int) # 1, 2
+    edges = torch.tensor([[0,1], [1,2], [-1,-1]], dtype=torch.int) # 1, 2
     E = edges.shape[0]
-    paddings = torch.tensor([[True, True]])
-    sheaves = torch.rand(E ,2,D,D)
+    paddings = torch.tensor([True, True, True])
+    sheaves = torch.rand(E,2,D,D)
 
-    print(sheaf_laplacian, (sheaves.unsqueeze(0), edges.unsqueeze(0), paddings.unsqueeze(0)))
+    print(sheaf_laplacian(sheaves.unsqueeze(0), edges.unsqueeze(0), paddings.unsqueeze(0))[0])
     
         
     
