@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 from scipy.spatial import distance_matrix
 
-def build_graph(conformations1, conformations2, padding, epsilon):
+def build_graph(conformations1, conformations2, padding, epsilon, adjacency_matrix=True):
     """
     Creates edges between nodes (atoms/residues) epsilon distance from one another.
     Processes two conformations at once so they are transformed in same way for valid comparison.
@@ -37,7 +37,8 @@ def build_graph(conformations1, conformations2, padding, epsilon):
     adjacency = adjacency & triu_mask[None, None, :, :]
 
     #if we index restriction maps via adjacency mats 
-    #return adjacency
+    if adjecency_matrix
+        return adjacency
 
     #alternatively if we want to do the edges list 
     rows = torch.arange(T)[None,None,:,None].repeat(B,2, 1, 1)

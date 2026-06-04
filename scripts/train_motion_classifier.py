@@ -42,7 +42,7 @@ def train_motion_classifier():
     learning_rate = 1e-4
     epochs = 8
     val_ratio = 0.3 
-
+    use_adjacency_mat = True
     
     # set up device 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
@@ -65,6 +65,7 @@ def train_motion_classifier():
             "epochs":epochs,
             "val_motions": val_motions,
             "val_ratio":val_ratio,
+            "use_adjacency_mat":use_adjacency_mat
         },
 
     )
@@ -79,7 +80,7 @@ def train_motion_classifier():
     val_loader = DataLoader(val_dataset,shuffle=True, batch_size=64, num_workers=16, collate_fn=MotionClassifierDataset.padd_collate, pin_memory=True, drop_last=False) 
 
     #set up model
-    model = SheafMotionClassifier(len(MotionClassifierDataset.AMINO_ACIDS)+3, 8, num_classes=len(MotionClassifierDataset.MOTION_CLASSES))
+    model = SheafMotionClassifier(len(MotionClassifierDataset.AMINO_ACIDS)+3, 8, num_classes=len(MotionClassifierDataset.MOTION_CLASSES), adjacency_mat=use_adjacency_mat)
     model = model.to(DEVICE)
     
     # set up other training stuff
@@ -94,7 +95,10 @@ def train_motion_classifier():
             conformations2 = conformations2.to(DEVICE) # B, T, 3 
             residues = residues.to(DEVICE) # B, T
             motion_classes = motion_classes.to(DEVICE) # B
-            graphs, graph_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE)) # B, 2, E, 2
+            if(use_adjacency_mat):
+                mats = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=True) # B, 2, E, 2
+            else:
+                edges, edge_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=False) # B, 2, E, 2
             residues_one_hot = F.one_hot(residues, num_classes=len(MotionClassifierDataset.AMINO_ACIDS)) # B, T, amino_acids
             node_features1 = torch.cat([conformations1, residues_one_hot],dim=2) # B, T, 3 + amino_acids 
             node_features2 = torch.cat([conformations2, residues_one_hot],dim=2) 
@@ -102,7 +106,11 @@ def train_motion_classifier():
             node_features = torch.stack([node_features1, node_features2], dim=1)
             # just in case any previous operations have been calculating gradients
             optimizer.zero_grad()
-            logits = model(node_features, graphs, lengths, graph_paddings) # B 
+            nodes,  node_lengths, matrix=None, edges=None, edge_lengths=None
+            if use_adjacency_mat:
+                logits = model(node_features, lengths, matrix=mats) # B 
+            else:
+                logits = model(node_features, lengths, edges=edges, edge_lengths = edge_lengths) # B 
 
             # compare prediction to ground truth classes
             loss = crit(logits, motion_classes)
@@ -120,19 +128,26 @@ def train_motion_classifier():
         confusion_mat = np.zeros((len(MotionClassifierDataset.MOTION_CLASSES), len(MotionClassifierDataset.MOTION_CLASSES)), dtype=int)
         with torch.no_grad():
             for conformations1, conformations2, residues, motion_classes, lengths in val_loader:
-                optimizer.zero_grad()
-
                 conformations1 = conformations1.to(DEVICE) # B, T, 3  
                 conformations2 = conformations2.to(DEVICE) # B, T, 3 
+
                 residues = residues.to(DEVICE) # B, T
                 motion_classes = motion_classes.to(DEVICE) # B
-                graphs, graph_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE)) # B, 2, E, 2
+                if(use_adjacency_mat):
+                    mats = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=True) # B, 2, E, 2
+                else:
+                    edges, edge_paddings = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=False) # B, 2, E, 2
                 residues_one_hot = F.one_hot(residues, num_classes=len(MotionClassifierDataset.AMINO_ACIDS)) # B, T, amino_acids
                 node_features1 = torch.cat([conformations1, residues_one_hot],dim=2) # B, T, 3 + amino_acids 
                 node_features2 = torch.cat([conformations2, residues_one_hot],dim=2) 
                 
                 node_features = torch.stack([node_features1, node_features2], dim=1)
-                logits = model(node_features, graphs, lengths, graph_paddings) # B 
+
+                nodes,  node_lengths, matrix=None, edges=None, edge_lengths=None
+                if use_adjacency_mat:
+                    logits = model(node_features, lengths, matrix=mats) # B 
+                else:
+                    logits = model(node_features, lengths, edges=edges, edge_lengths = edge_lengths) # B 
 
                 # compare prediction to ground truth classes
                 loss = crit(logits, motion_classes)
