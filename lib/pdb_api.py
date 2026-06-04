@@ -21,12 +21,15 @@ def retrieve_pdb_file(pdb_id, file_format = "cif"):
     attempts = 8
     delay = 1
     while(i < attempts):
-        if(response := requests.get(url, headers=headers)).status_code != 200:
+        try:
+            if (response := requests.get(url, headers=headers)).status_code != 200:
+                time.sleep(delay)
+            else:
+                with open(file_path, "w") as file:
+                    file.write(response.text)
+                return file_path
+        except requests.exceptions.ReadTimeout:
             time.sleep(delay)
-        else:
-            with open(file_path, "w") as file:
-                file.write(response.text)
-            return file_path
         i += 1
         delay *= 1.3
     raise ValueError(f"{pdb_id} could not be accessed at {url}: error code {response.status_code}")

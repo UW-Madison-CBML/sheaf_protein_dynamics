@@ -5,6 +5,7 @@ sys.path.append("../lib")
 from pdb_api import load_motion_structures
 from motion_classifier_dataset import MotionClassifierDataset
 import os
+from tqdm import tqdm
 
 def main():
     # the last two columns seem to be empty
@@ -26,7 +27,7 @@ def main():
     df = df.dropna()
 
     groups = []
-    for idx, row in df.iterrows():
+    for idx, row in tqdm(df.iterrows()):
 
         conformation1, conformation2, residues = load_motion_structures(row["pdb_1"], row["pdb_2"]) # list[atom],list[atom], list[str]
         conformation1 = [atom.get_coord() for atom in conformation1]
