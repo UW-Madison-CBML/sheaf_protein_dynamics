@@ -27,7 +27,7 @@ def main():
     df = df.dropna()
 
     groups = []
-    for idx, row in tqdm(df.iterrows()):
+    for idx, row in tqdm(list(df.iterrows())):
 
         conformation1, conformation2, residues = load_motion_structures(row["pdb_1"], row["pdb_2"]) # list[atom],list[atom], list[str]
         conformation1 = [atom.get_coord() for atom in conformation1]

@@ -67,10 +67,10 @@ def load_pdb(pdb_plus_chain):
         else:
             chain_id = "A" # otherwise fall back to A, this does not seem to happen much
         chain_id = chain_id.upper()
-        if(chain_id in structure[0].keys()):
+        if(chain_id in structure[0].child_dict.keys()):
             chain = structure[0][chain_id] 
         else:
-            chain = structure[0][list(structure[0].keys())[0]] # if chain doesn't work just pick the first
+            chain = structure[0][list(structure[0].child_dict.keys())[0]] # if chain doesn't work just pick the first
     atoms = {}
     res_names = {}
     for residue in chain:
