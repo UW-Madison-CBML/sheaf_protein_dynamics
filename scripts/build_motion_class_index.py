@@ -46,7 +46,8 @@ def main():
             conformation_df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
             
             groups.append(conformation_df)
-        except ValueError as e:
+        # this should only end up removing a handful of samples
+        except (ValueError, KeyError) as e:
             print(f"error skipping row: {e}")
     print("motions: ", len(groups))
     df = pd.concat(groups, axis=0, ignore_index=True)
