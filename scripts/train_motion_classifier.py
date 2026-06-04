@@ -106,7 +106,7 @@ def train_motion_classifier():
             node_features = torch.stack([node_features1, node_features2], dim=1)
             # just in case any previous operations have been calculating gradients
             optimizer.zero_grad()
-            nodes,  node_lengths, matrix=None, edges=None, edge_lengths=None
+
             if use_adjacency_mat:
                 logits = model(node_features, lengths, matrix=mats) # B 
             else:
@@ -143,7 +143,6 @@ def train_motion_classifier():
                 
                 node_features = torch.stack([node_features1, node_features2], dim=1)
 
-                nodes,  node_lengths, matrix=None, edges=None, edge_lengths=None
                 if use_adjacency_mat:
                     logits = model(node_features, lengths, matrix=mats) # B 
                 else:

@@ -64,9 +64,9 @@ class SheafMotionClassifier(torch.nn.Module):
             # now mask the sheaves
             node_pairs = matrix[:,:,:,:,None] * node_pairs
             flat_sheaves = F.relu(self.lin3(node_pairs)) # B, 2, T, T, D**2
-            sheaves = flat_sheaves.reshape(B,2,T,T,D,D)
+            sheaves = flat_sheaves.reshape(B,2,T,T,self.stalk_dimensions,self.stalk_dimensions)
             # flatten out pair dim
-            sheaves = sheaves.reshape(B*2,T,T,D,D)
+            sheaves = sheaves.reshape(B*2,T,T,self.stalk_dimensions,self.stalk_dimensions)
             eigenspectra = eigenspectrum(*sheaf_laplacian_adjacency(sheaves,node_lengths)).reshape(B,2,T) # B,2,T
 
             
