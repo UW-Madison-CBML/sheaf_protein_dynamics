@@ -56,21 +56,18 @@ def load_pdb(pdb_plus_chain):
     # parser = PDB.PDBParser(QUIET=True)
     parser = PDB.MMCIFParser(QUIET=True) 
     structure = parser.get_structure(pdb_id, file_path) 
-    if chain_id:
-        chain = structure[0][chain_id.upper()] 
+    first_structure = structure[0]
+    all_chains = list(first_structure.get_chains())
+
+    if chain_id and chain_id in all_chains:
+        chain = first_structure[chain_id]  
     else:
-        first_structure = structure[0]
-        all_chains = list(first_structure.get_chains())
-    
         if all_chains:
             chain_id = all_chains[0].id.strip()
         else:
             chain_id = "A" # otherwise fall back to A, this does not seem to happen much
         chain_id = chain_id.upper()
-        if(chain_id in structure[0].child_dict.keys()):
-            chain = structure[0][chain_id] 
-        else:
-            chain = structure[0][list(structure[0].child_dict.keys())[0]] # if chain doesn't work just pick the first
+        chain = first_structure[chain_id]
     atoms = {}
     res_names = {}
     for residue in chain:
