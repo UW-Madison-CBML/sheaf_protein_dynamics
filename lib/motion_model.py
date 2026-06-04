@@ -29,7 +29,7 @@ class SheafMotionClassifier(torch.nn.Module):
         # B, 2, E, 2
         _,_,E,_ = edges.shape
         # work on the nodes
-        nodes = F.relu(self.lin1(nodes))
+        nodes = F.relu(self.lin1(nodes)) # Getting double and float
         nodes = F.relu(self.lin2(nodes))
         # get the actual graphs 
         left_graphs = nodes[torch.arange(B), torch.arange(2)[None,:].repeat(B,1), edges[:,:,:,0]]
@@ -63,11 +63,11 @@ if __name__ == "__main__":
     B = 1 
     T = 3
     E = 2 
-    model = SheafMotionClassifier(1, 1, lstm_hidden_dim=8, num_classes=5, hidden_dim=8)
-    node_features = torch.ones(B, 2, T, 1, requires_grad=True).to(torch.double)
+    model = SheafMotionClassifier(1, 1, lstm_hidden_dim=8, num_classes=5, hidden_dim=8).double()
+    nodes = torch.ones(B, 2, T, 1, requires_grad=True).to(torch.double)
     edges = torch.tensor([[ [[1,2],[0,1]], [[1,2],[0,1]] ]])
     node_lengths = torch.tensor([T], dtype=torch.int)
     edge_paddings = torch.ones((B,E), dtype=torch.bool)
 
-    print(gradcheck(model.forward, (node_features, edges, node_lengths, edge_paddings)))
+    print(gradcheck(model.forward, (nodes, edges, node_lengths, edge_paddings)))
     
