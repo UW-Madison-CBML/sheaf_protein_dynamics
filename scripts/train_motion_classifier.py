@@ -1,7 +1,3 @@
-# TODO figure out how to get the lib files in the htcondor job as a py package
-"""from lib.sheaf_classifier_dataset import MotionClassifierDataset
-from lib.sheaf_model import SheafMotionClassifier
-from lib.sheaf_utils import build_graph"""
 # for use them directly
 from motion_classifier_dataset import MotionClassifierDataset
 from motion_model import SheafMotionClassifier
@@ -51,7 +47,7 @@ def train_motion_classifier():
     motion_ids = df["motion_id"].unique()
     #np.random.shuffle(motion_ids) # optionally shuffle the motion ids
     val_motions = motion_ids[:int(val_ratio * len(motion_ids))]
-    df_mask = df["motion_id"].isin(split)
+    df_mask = df["motion_id"].isin(val_motions)
 
     #set up wandb
     wandb.login(key=os.getenv("WANDB_KEY"))
