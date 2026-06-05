@@ -1,5 +1,6 @@
 import requests 
 import pandas as pd
+import numpy as np
 import json
 from Bio import PDB, Align
 from Bio.SeqUtils import seq1
@@ -83,48 +84,131 @@ def load_pdb(pdb_plus_chain):
             
     return atoms, res_names
 
+def pdb_chain_to_uniprot_id(pdb_plus_chain):
 
-def load_motion_structures(pdb1, pdb2):
-    atoms1, res_names1 = load_pdb(pdb1)
-    atoms2, res_names2 = load_pdb(pdb2)
+    pdb_plus_chain = pdb_plus_chain.replace(":", "_")
 
+    if "_" not in pdb_plus_chain:
+        # Fall back to chain 'A'
+        pdb_id = pdb_plus_chain
+        target_chain = "A"
+    else:
+        pdb_id, target_chain = pdb_plus_chain.split("_")
+    
+    pdb_id = pdb_id.lower()
+    target_chain = target_chain.upper()
+
+    # Query SIFTS API
+    url = f"https://www.ebi.ac.uk/pdbe/api/mappings/uniprot/{pdb_id}"
+    response = requests.get(url)
+
+
+    if response.status_code == 200:
+        data = response.json()
+        try:
+            uniprot_dict = data[pdb_id]['UniProt']
+        
+            for uniprot_id, mapping_data in uniprot_dict.items():
+                for mapping in mapping_data['mappings']:
+                    if mapping['chain_id'] == target_chain:
+                        return uniprot_id # found exact match
+            
+            print(f"Chain {target_chain} not found in UniProt mappings for PDB {pdb_id.upper()}.")
+            return None
+        
+        except KeyError:
+            print(f"Mapping structure missing for PDB {pdb_id.upper()}.")
+            return None
+
+    else:
+        print(f"Failed to fetch data for {pdb_id.upper()}. HTTPS Status: {response.status_code}")
+        return None  
+
+def get_uniprot_sequence(uniprot_id):
+    url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.fasta"
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        # FASTA format
+        fasta_lines = response.text.strip().split('\n')
+        sequence = ''.join(fasta_lines[1:])
+        return sequence
+    else:
+        print(f"Error fetching data: HTTP {response.status_code}")
+        return None
+    
+def map_pdb_to_uniprot(atoms, res_names, uniprot_seq:str):
     aligner = Align.PairwiseAligner()
     aligner.mode = 'global'
     aligner.open_gap_score = -10
     aligner.extend_gap_score = -1
 
-    seq1_list = [(num, seq1(name)) for num, name in res_names1.items() if seq1(name) != 'X']
-    seq2_list = [(num, seq1(name)) for num, name in res_names2.items() if seq1(name) != 'X']
+    # PDB sequence
+    seq_list = [(num, seq1(name)) for num, name in res_names.items() if seq1(name) != 'X']
+
+    seq_str = "".join([char for _, char in seq_list])
+
+    # uniprot seq is already string
+    alignment = aligner.align(uniprot_seq, seq_str)[0]
+    uniprot_blocks, pdb_blocks = alignment.aligned[:2]
+
+    aligned_atoms = [None] * len(uniprot_seq)
+
+    for u_block, p_block in zip(uniprot_blocks, pdb_blocks):
+        for i in range(u_block[1] - u_block[0]):
+            u_idx = u_block[0] + i
+            p_idx = p_block[0] + i
+
+            res_num = seq_list[p_idx][0]
+            if res_num in atoms:
+                aligned_atoms[u_idx] = atoms[res_num]
     
-    seq1_str = "".join([char for _, char in seq1_list])
-    seq2_str = "".join([char for _, char in seq2_list])
+    return aligned_atoms
+
+
+
+def load_motion_structures(pdb1, pdb2, uniprot_seq:str):
+
+    atoms1, res_names1 = load_pdb(pdb1)
+    atoms2, res_names2 = load_pdb(pdb2)
+
+    aligned_atoms1 = map_pdb_to_uniprot(atoms1, res_names1, uniprot_seq)
+    aligned_atoms2 = map_pdb_to_uniprot(atoms2, res_names2, uniprot_seq)
 
     intersecting_atoms1 = []
     intersecting_atoms2 = []
 
-    alignment = aligner.align(seq1_str, seq2_str)[0]  
-    blocks1, blocks2 = alignment.aligned[:2]
-
-
-    for block1, block2 in zip(blocks1, blocks2):
-        for idx in range(block1[1] - block1[0]): # block1[1] - block1[0] = block2[1] - block2[0]
-            idx1 = idx + block1[0]
-            idx2 = idx + block2[0]
-
-            atom1 = atoms1[seq1_list[idx1][0]]
-            atom2 = atoms2[seq2_list[idx2][0]]
-            if(atom1.get_parent().get_resname() == atom2.get_parent().get_resname()):
-                intersecting_atoms1.append(atom1)
-                intersecting_atoms2.append(atom2)
-            
+    for a1, a2 in zip(aligned_atoms1, aligned_atoms2):
+        if a1 is not None and a2 is not None:
+            intersecting_atoms1.append(a1)
+            intersecting_atoms2.append(a2)
     
     super_imposer = PDB.Superimposer()
     super_imposer.set_atoms(intersecting_atoms1, intersecting_atoms2)
 
-    super_imposer.apply(intersecting_atoms2) 
+    # Apply rotation/translation to all valid atoms in conformation 2
+    valid_atoms2 = [a for a in aligned_atoms2 if a is not None]
+    super_imposer.apply(valid_atoms2) 
 
+    # Need to pad the final coords to line up pdb position with uniprot seq
+    L = len(uniprot_seq)
+    conformation1 = np.zeros((L,3))
+    conformation2 = np.zeros((L,3))
+
+    for i in range(L):
+        # Extract conf 1
+        if aligned_atoms1[i] is not None:
+            conformation1[i] = aligned_atoms1[i].get_coord()
+        else:
+            conformation1[i] = [-1.0, -1.0, -1.0] # Pad if empty
+        
+        # Conf 2
+        if aligned_atoms2[i] is not None:
+            conformation2[i] = aligned_atoms2[i].get_coord()
+        else:
+            conformation2[i] = [-1.0, -1.0, -1.0]
     
-    return intersecting_atoms1, intersecting_atoms2, [atom.get_parent().get_resname() for atom in intersecting_atoms1]
+    return conformation1, conformation2 
 
 # for temporary use
 if __name__ == "__main__":
@@ -154,9 +238,9 @@ if __name__ == "__main__":
     '1ysl',
     '4rzu',
     '4rzu']
+
     for i in pdb_list:
-        print(load_motion_structures(i, i))
+        uniprot_id = pdb_chain_to_uniprot_id(i)
+        uniprot_seq = get_uniprot_sequence(uniprot_id)
+        print(load_motion_structures(i, i, uniprot_seq))
     
-
-    
-
