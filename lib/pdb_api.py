@@ -169,6 +169,7 @@ def map_pdb_to_uniprot(atoms, res_names, uniprot_seq:str):
 
 def load_motion_structures(pdb1, pdb2, uniprot_seq:str):
 
+    # uniprot_seq: single letter residues 
     atoms1, res_names1 = load_pdb(pdb1)
     atoms2, res_names2 = load_pdb(pdb2)
 
@@ -183,7 +184,7 @@ def load_motion_structures(pdb1, pdb2, uniprot_seq:str):
         if a1 is not None and a2 is not None:
             intersecting_atoms1.append(a1)
             intersecting_atoms2.append(a2)
-            intersection_residues.append(res)
+            intersection_residues.append(seq3(res))
     
     super_imposer = PDB.Superimposer()
     super_imposer.set_atoms(intersecting_atoms1, intersecting_atoms2)
