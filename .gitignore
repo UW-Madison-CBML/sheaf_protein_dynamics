@@ -1,5 +1,10 @@
 misc/.venv
+# API keys
 api_keys.txt
+# CHTC files
 *.out
 *.err
 *.log
+# PDB file formats
+*.cif
+*.pdb
