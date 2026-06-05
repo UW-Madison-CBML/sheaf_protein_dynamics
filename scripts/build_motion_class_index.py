@@ -75,7 +75,9 @@ def main(use_uniprot):
 
             conformation_df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
             groups.append(conformation_df)
-        # this should only end up removing a handful of samples, zero division error means the intersection of the aligned strings is empty
+        # KeyError: the PDB structure[0] dict got an invalid key
+        # ZeroDivisionError: the conformation aligner got an empty seqeunce of atoms, meaning the intersection of the aligned sequences was empty
+        # 
         except (ValueError, KeyError, AttributeError,ZeroDivisionError) as e:
             print(f"error skipping row {row['motion_id']}: {e}")
 
