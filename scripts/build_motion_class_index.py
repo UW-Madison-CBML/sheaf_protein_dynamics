@@ -75,8 +75,8 @@ def main(use_uniprot):
 
             conformation_df = pd.concat([res_df, conformation1_df, conformation2_df], axis=1)
             groups.append(conformation_df)
-        # this should only end up removing a handful of samples
-        except (ValueError, KeyError, AttributeError) as e:
+        # this should only end up removing a handful of samples, zero division error means the intersection of the aligned strings is empty
+        except (ValueError, KeyError, AttributeError,ZeroDivisionError) as e:
             print(f"error skipping row {row['motion_id']}: {e}")
 
     print("motions: ", len(groups))
