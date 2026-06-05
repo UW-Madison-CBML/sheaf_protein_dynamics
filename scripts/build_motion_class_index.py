@@ -2,12 +2,12 @@ import pandas as pd
 import sys
 # for now if  on chtc comment this
 sys.path.append("../lib")
-from pdb_api import load_motion_structures, get_uniprot_sequence, pdb_chain_to_uniprot_id
+from pdb_api import load_motion_structures, get_uniprot_sequence, load_motion_structures_no_uniprot
 from motion_classifier_dataset import MotionClassifierDataset
 import os
 from tqdm import tqdm
 
-def main():
+def main(use_uniprot):
     # the last two columns seem to be empty
     columns = ['uniprot_ID', 'pdb_1', 'pocket_size_free', 'pdb_2', 'ligand', 'pocket_size_bound', 'motion_class', 'motion_residues', 'RMSD_pocket']
     free_bound_df = pd.read_csv(os.path.abspath("free_bound_pocket.csv"),header=0)
@@ -23,9 +23,10 @@ def main():
 
     df = pd.concat([free_bound_df, dif_ligand_df], axis=0, ignore_index=True)
     # TODO what other of these features could be incorporated into the pipeline
-    df = df[["pdb_1", "pdb_2", "motion_class"]] # remove unecessary rows before we dropna
-    df["motion_id"] = df['pdb_1'] + df['pdb_2']
+    df = df[["pdb_1", "pdb_2", "motion_class", "uniprot_ID"]] # remove unecessary rows before we dropna
+
     df = df.dropna()
+    df["motion_id"] = df['pdb_1'] + df['pdb_2']
 
     groups = []
     pbar = tqdm(list(df.iterrows()))
@@ -36,25 +37,28 @@ def main():
                     motion2=f"{row['pdb_2']}",
                 )
         try:
-            # map to uniprot and get target sequence
-            uniprot_id = pdb_chain_to_uniprot_id(row["pdb_1"])
-            if not uniprot_id:
-                print(f"Skipping {row['motion_id']}: Could not map to UniProt.")
-                continue
+            if(use_uniprot):
+                uniprot_id = row['uniprot_ID']
+                if not uniprot_id:
+                    print(f"Skipping {row['motion_id']}: Could not map to UniProt.")
+                    continue
 
-            uniprot_seq = get_uniprot_sequence(uniprot_id)
-            if not uniprot_seq:
-                print(f"Skipping {row['motion_id']}: Could not fetch FASTA.")
-                continue
+                uniprot_seq = get_uniprot_sequence(uniprot_id)
+                if not uniprot_seq:
+                    print(f"Skipping {row['motion_id']}: Could not fetch FASTA.")
+                    continue
             
             # padded, uniprot-aligned coordinates
-            conformation1, conformation2 = load_motion_structures(row["pdb_1"], row["pdb_2"], uniprot_seq)
+            if(use_uniprot):
+                conformation1, conformation2, residues = load_motion_structures(row["pdb_1"], row["pdb_2"], uniprot_seq)
+            else:
+                conformation1, conformation2, residues = load_motion_structures_no_uniprot(row["pdb_1"], row["pdb_2"]
 
-            # Create residue column from uniprot sequence string
             residue_indices = []
-            for res in uniprot_seq:
+            for res in residues:
                 try:
                     residue_indices.append(MotionClassifierDataset.AMINO_ACIDS.index(res.upper()))
+                # TODO this will not work with Cross entropy loss
                 except ValueError:
                     residue_indices.append(-1)
             
@@ -62,7 +66,7 @@ def main():
                 "residue": residue_indices,
                 "motion_class": row["motion_class"],
                 "motion_id": row["motion_id"],
-                "res_name": list(uniprot_seq)
+                "res_name": list(residues)
             })
 
             # construct x,y,x coords
@@ -81,4 +85,5 @@ def main():
     df.to_csv("motions.csv")
     
 if __name__ == "__main__":
-    main()
+    import sys
+    main(bool(sys.argv[1]))

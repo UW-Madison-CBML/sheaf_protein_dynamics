@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import json
 from Bio import PDB, Align
-from Bio.SeqUtils import seq1
+from Bio.SeqUtils import seq1, seq3
 import sys
 import time
 import os
@@ -177,39 +177,66 @@ def load_motion_structures(pdb1, pdb2, uniprot_seq:str):
 
     intersecting_atoms1 = []
     intersecting_atoms2 = []
+    intersection_residues = []
 
-    for a1, a2 in zip(aligned_atoms1, aligned_atoms2):
+    for a1, a2, res in zip(aligned_atoms1, aligned_atoms2, uniprot_seq):
         if a1 is not None and a2 is not None:
             intersecting_atoms1.append(a1)
             intersecting_atoms2.append(a2)
+            intersection_residues.append(res)
     
     super_imposer = PDB.Superimposer()
     super_imposer.set_atoms(intersecting_atoms1, intersecting_atoms2)
 
-    # Apply rotation/translation to all valid atoms in conformation 2
-    valid_atoms2 = [a for a in aligned_atoms2 if a is not None]
-    super_imposer.apply(valid_atoms2) 
+    super_imposer.apply(intersecting_atoms2) 
 
-    # Need to pad the final coords to line up pdb position with uniprot seq
-    L = len(uniprot_seq)
-    conformation1 = np.zeros((L,3))
-    conformation2 = np.zeros((L,3))
+    conformation1 = np.array([atom.get_coord() for atom in intersecting_atoms1])
+    conformation2 = np.array([atom.get_coord() for atom in intersecting_atoms2])
 
-    for i in range(L):
-        # Extract conf 1
-        if aligned_atoms1[i] is not None:
-            conformation1[i] = aligned_atoms1[i].get_coord()
-        else:
-            conformation1[i] = [-1.0, -1.0, -1.0] # Pad if empty
         
-        # Conf 2
-        if aligned_atoms2[i] is not None:
-            conformation2[i] = aligned_atoms2[i].get_coord()
-        else:
-            conformation2[i] = [-1.0, -1.0, -1.0]
-    
-    return conformation1, conformation2 
+    return conformation1, conformation2, intersection_residues
 
+def load_motion_structures_no_uniprot(pdb1, pdb2):
+    atoms1, res_names1 = load_pdb(pdb1)
+    atoms2, res_names2 = load_pdb(pdb2)
+
+    aligner = Align.PairwiseAligner()
+    aligner.mode = 'global'
+    aligner.open_gap_score = -10
+    aligner.extend_gap_score = -1
+
+    seq1_list = [(num, seq1(name)) for num, name in res_names1.items() if seq1(name) != 'X']
+    seq2_list = [(num, seq1(name)) for num, name in res_names2.items() if seq1(name) != 'X']
+    
+    seq1_str = "".join([char for _, char in seq1_list])
+    seq2_str = "".join([char for _, char in seq2_list])
+
+    intersecting_atoms1 = []
+    intersecting_atoms2 = []
+
+    alignment = aligner.align(seq1_str, seq2_str)[0]  
+    blocks1, blocks2 = alignment.aligned[:2]
+
+
+    for block1, block2 in zip(blocks1, blocks2):
+        for idx in range(block1[1] - block1[0]): # block1[1] - block1[0] = block2[1] - block2[0]
+            idx1 = idx + block1[0]
+            idx2 = idx + block2[0]
+
+            atom1 = atoms1[seq1_list[idx1][0]]
+            atom2 = atoms2[seq2_list[idx2][0]]
+            if(atom1.get_parent().get_resname() == atom2.get_parent().get_resname()):
+                intersecting_atoms1.append(atom1)
+                intersecting_atoms2.append(atom2)
+            
+    
+    super_imposer = PDB.Superimposer()
+    super_imposer.set_atoms(intersecting_atoms1, intersecting_atoms2)
+
+    super_imposer.apply(intersecting_atoms2) 
+
+    
+    return intersecting_atoms1, intersecting_atoms2, [atom.get_parent().get_resname() for atom in intersecting_atoms1]
 # for temporary use
 if __name__ == "__main__":
     pdb_list = [
