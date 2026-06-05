@@ -13,7 +13,7 @@ class MotionClassifierDataset(Dataset):
     # OM = Other motion
     MOTION_CLASSES = ["PE","PS","PF","PC","OM"]
     # ground truth order of amino acid indices. they must be capitalized
-    AMINO_ACIDS = [code.upper() for code in IUPACData.protein_letters_3to1.keys()]
+    AMINO_ACIDS = [code.upper() for code in IUPACData.protein_letters_3to1.keys()] + ["PYL", "SEC"] # add pyrrolysine and selenocysteine
     def __init__(self, conformations_df):
         # load each protein and get it's 3d structure sequence and amino acid sequence 
         # self.df:
