@@ -52,7 +52,7 @@ def main(use_uniprot):
             if(use_uniprot):
                 conformation1, conformation2, residues = load_motion_structures(row["pdb_1"], row["pdb_2"], uniprot_seq)
             else:
-                conformation1, conformation2, residues = load_motion_structures_no_uniprot(row["pdb_1"], row["pdb_2"]
+                conformation1, conformation2, residues = load_motion_structures_no_uniprot(row["pdb_1"], row["pdb_2"])
 
             residue_indices = []
             for res in residues:
