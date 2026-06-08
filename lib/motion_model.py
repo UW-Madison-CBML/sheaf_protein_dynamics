@@ -63,8 +63,6 @@ class SheafMotionClassifier(torch.nn.Module):
         else:
             node_pairs = torch.cat(torch.broadcast_tensors(nodes[:,:,:,None,:],nodes[:,:,None,:,:]), dim=4) # B,2,T,T,2*hidden_dim
             
-            print("node_pairs: ", node_pairs.shape)
-            print("mat.shape: ", matrix.shape)
 
             # now mask the sheaves
             node_pairs = matrix[:,:,:,:,None] * node_pairs
@@ -72,12 +70,14 @@ class SheafMotionClassifier(torch.nn.Module):
             sheaves = flat_sheaves.reshape(B,2,T,T,self.stalk_dimensions,self.stalk_dimensions)
             # flatten out pair dim
             sheaves = sheaves.reshape(B*2,T,T,self.stalk_dimensions,self.stalk_dimensions)
+            print(sheaves)
             # node lengths needs to be doubled for the flattened pair dim
             node_lengths = node_lengths.to(sheaves.device)
             # D = self.stalk_dimensions
             laps, lap_lens = sheaf_laplacian_adjacency(sheaves,node_lengths[:,None].repeat(1,2).flatten())
+            print(laps)
             eigenspectra = eigenspectrum(laps, lap_lens) # complex
-            print("eig shape:", eigenspectra.shape)
+            print("eig:", eigenspectra)
             eigenspectra = torch.view_as_real(eigenspectra.reshape(B,2,T*self.stalk_dimensions)) # B,2,T*D, 2
 
             
@@ -85,7 +85,7 @@ class SheafMotionClassifier(torch.nn.Module):
         eigenspectra = eigenspectra.reshape(B,T*self.stalk_dimensions, 4)
         # pack padded seqs wants the lengths on the CPU
         node_lengths = node_lengths.cpu()
-        seqs = pack_padded_sequence(eigenspectra, node_lengths, enforce_sorted=False,batch_first=True)
+        seqs = pack_padded_sequence(eigenspectra, node_lengths, enforce_sorted=False, batch_first=True)
         _, (h, _) = self.lstm(seqs) # h.shape = 2, B, lstm_hidden_dim
         h = h.permute(1, 2, 0).reshape(B, 2 * self.lstm_hidden_dim)
         pair_features = F.relu(self.lin4(h))
@@ -102,14 +102,29 @@ class SheafMotionClassifier(torch.nn.Module):
         
 # test if gradients are stable     
 if __name__ == "__main__":
-    B = 1 
+    B = 2
     T = 3
     E = 2 
-    model = SheafMotionClassifier(1, 1, lstm_hidden_dim=8, num_classes=5, hidden_dim=8).double()
-    nodes = torch.ones(B, 2, T, 1, requires_grad=True).to(torch.double)
-    edges = torch.tensor([[ [[1,2],[0,1]], [[1,2],[0,1]] ]])
-    node_lengths = torch.tensor([T], dtype=torch.int)
-    edge_lengthss = torch.ones((B,E), dtype=torch.bool)
 
-    print(gradcheck(model.forward, (nodes, edges, node_lengths, edge_lengthss)))
+    # node_features, stalk_dimensions, lstm_hidden_dim=8, num_classes=5, hidden_dim=64, adjacency_matrix=True
+    model = SheafMotionClassifier(1, 1, lstm_hidden_dim=8, num_classes=5, hidden_dim=8, adjacency_matrix=True).double()
+    nodes = torch.randn(B, 2, T, 1, requires_grad=True).to(torch.double)
+    matrix_first_half = (torch.eye(T, dtype=torch.bool).roll(0,1) | torch.eye(T, dtype=torch.bool).roll(1,1))[None,None,:,:].repeat(B//2,2,1,1)
+    matrix_second_half = torch.zeros(T,T,dtype=torch.bool)
+    matrix_second_half[0,2] = 1
+    matrix_second_half[2,0] = 1
+    matrix_second_half = matrix_second_half[None,None,:,:].repeat(B//2,2,1,1)
+    matrix = torch.cat([matrix_first_half, matrix_second_half],dim=0)
+    print(matrix.shape)
+
+    node_lengths = torch.tensor([T]*B, dtype=torch.int)
+
+    print(gradcheck(model.forward, (nodes, node_lengths, matrix)))
+    loss = torch.nn.CrossEntropyLoss()(model(nodes, node_lengths, matrix=matrix),torch.tensor([0]*(B//2) + [1]*(B//2),dtype=torch.long))
+    loss.backward()
+    print("1", model.lin1.weight.grad)
+    print("2", model.lin2.weight.grad)
+    print("3", model.lin3.weight.grad)
+    print("4", model.lin4.weight.grad)
+    print("5", model.lin5.weight.grad)
     
