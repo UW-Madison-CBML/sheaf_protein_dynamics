@@ -40,7 +40,7 @@ def train_motion_classifier():
     epochs = 8
     val_ratio = 0.3 
     use_adjacency_mat = True
-    batch_size = 8
+    batch_size = 4
     
     # set up device 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
@@ -77,9 +77,10 @@ def train_motion_classifier():
     # set up dataloader
     loader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=16, collate_fn=MotionClassifierDataset.pad_collate, pin_memory=True, drop_last=False) 
     val_loader = DataLoader(val_dataset, shuffle=False, batch_size=batch_size, num_workers=16, collate_fn=MotionClassifierDataset.pad_collate, pin_memory=True, drop_last=False) 
-
+    
+    # model.__init__(self, node_features, stalk_dimensions,lstm_hidden_dim=8, num_classes=5, hidden_dim=64, adjacency_matrix=True):
     #set up model
-    model = SheafMotionClassifier(len(MotionClassifierDataset.AMINO_ACIDS)+3, 8, num_classes=len(MotionClassifierDataset.MOTION_CLASSES), adjacency_matrix=use_adjacency_mat)
+    model = SheafMotionClassifier(len(MotionClassifierDataset.AMINO_ACIDS)+3, 2, lstm_hidden_dim=2, hidden_dim=8, num_classes=len(MotionClassifierDataset.MOTION_CLASSES), adjacency_matrix=use_adjacency_mat)
     model = model.to(DEVICE)
     
     # set up other training stuff

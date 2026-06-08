@@ -98,7 +98,7 @@ def eigenspectrum(laplacians, lengths):
     assert lengths.max() <= TD and lengths.min() >= 1, f"BAD RANGE FOR LENGTHS: expected: [{lengths.min()},{lengths.max()}] is not a subset of [1, {TD}]"
 
     padding = (torch.arange(TD, device=laplacians.device)[None,:] < lengths[:, None])
-    identity_mask = padding[:,None,None,:] & padding[:,None,:,None]
+    identity_mask = padding[:,None,:] & padding[:,:,None]
     
     # need to pad the laplacians with identity columns giving us extra -1 eigvals = T - padding
     identity = -1 * torch.eye(TD, dtype=torch.bool, device = laplacians.device) 
@@ -109,6 +109,7 @@ def eigenspectrum(laplacians, lengths):
     
     # if our laplacians are symmetric we can use eigvalsh
     # otherwise just use eigvals
+    print(masked_laplacians.shape)
     eigenspectra = torch.linalg.eigvals(masked_laplacians)
     return eigenspectra
     

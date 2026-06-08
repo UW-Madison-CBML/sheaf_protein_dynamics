@@ -21,9 +21,10 @@ class SheafMotionClassifier(torch.nn.Module):
         self.lin2 = torch.nn.Linear(self.hidden_dim, self.hidden_dim)
         # apply to the ordered pairs of node hidden features
         self.lin3 = torch.nn.Linear(self.hidden_dim*2, self.stalk_dimensions**2)
-
-        self.lstm = torch.nn.LSTM(2,self.lstm_hidden_dim, batch_first=True, bidirectional=True)
-        self.lin4 = torch.nn.Linear(self.lstm_hidden_dim*2, self.num_classes)
+        # each lstm looks at 4 features: the complex and real parts of the two eigvals from the two proteins
+        self.lstm = torch.nn.LSTM(4,self.lstm_hidden_dim, batch_first=True, bidirectional=True)
+        self.lin4 = torch.nn.Linear(self.lstm_hidden_dim*2, self.lstm_hidden_dim*2)
+        self.lin5 = torch.nn.Linear(self.lstm_hidden_dim*2, self.num_classes)
         
     def forward(self, nodes,  node_lengths, matrix=None, edges=None, edge_lengths=None):
         # T = num_nodes
@@ -73,13 +74,18 @@ class SheafMotionClassifier(torch.nn.Module):
             sheaves = sheaves.reshape(B*2,T,T,self.stalk_dimensions,self.stalk_dimensions)
             # node lengths needs to be doubled for the flattened pair dim
             node_lengths = node_lengths.to(sheaves.device)
-            eigenspectra = eigenspectrum(*sheaf_laplacian_adjacency(sheaves,node_lengths[:,None].repeat(1,2).flatten())).reshape(B,2,T) # B,2,T
+            # D = self.stalk_dimensions
+            laps, lap_lens = sheaf_laplacian_adjacency(sheaves,node_lengths[:,None].repeat(1,2).flatten())
+            eigenspectra = eigenspectrum(laps, lap_lens) # complex
+            print("eig shape:", eigenspectra.shape)
+            eigenspectra = torch.view_as_real(eigenspectra.reshape(B,2,T*self.stalk_dimensions)) # B,2,T*D, 2
 
             
-        eigenspectra = eigenspectra.permute(0,2,1) # B, T, 2
+        eigenspectra = eigenspectra.permute(0,2,1,3) # B, T*D, 2
+        eigenspectra = eigenspectra.reshape(B,T*self.stalk_dimensions, 4)
         # pack padded seqs wants the lengths on the CPU
         node_lengths = node_lengths.cpu()
-        seqs = pack_padded_sequence(eigenspectra, node_lengths, batch_first=True)
+        seqs = pack_padded_sequence(eigenspectra, node_lengths, enforce_sorted=False,batch_first=True)
         _, (h, _) = self.lstm(seqs) # h.shape = 2, B, lstm_hidden_dim
         h = h.permute(1, 2, 0).reshape(B, 2 * self.lstm_hidden_dim)
         pair_features = F.relu(self.lin4(h))
