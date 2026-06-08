@@ -72,6 +72,7 @@ class SheafMotionClassifier(torch.nn.Module):
             # flatten out pair dim
             sheaves = sheaves.reshape(B*2,T,T,self.stalk_dimensions,self.stalk_dimensions)
             # node lengths needs to be doubled for the flattened pair dim
+            node_lengths = node_lengths.to(sheaves.device)
             eigenspectra = eigenspectrum(*sheaf_laplacian_adjacency(sheaves,node_lengths[:,None].repeat(1,2).flatten())).reshape(B,2,T) # B,2,T
 
             

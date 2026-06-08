@@ -10,6 +10,7 @@ import wandb
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from sklearn.metrics import ConfusionMatrixDisplay
+from tqdm import tqdm
 
 import os
 import math
@@ -84,10 +85,11 @@ def train_motion_classifier():
     # set up other training stuff
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5) 
     crit = torch.nn.CrossEntropyLoss()
-    
+     
     # training  
     for epoch in range(epochs):
-        for conformations1, conformations2, residues, motion_classes, lengths in loader:
+        pbar = tqdm(loader)
+        for conformations1, conformations2, residues, motion_classes, lengths in pbar:
 
             conformations1 = conformations1.to(DEVICE) # B, T, 3  
             conformations2 = conformations2.to(DEVICE) # B, T, 3 
