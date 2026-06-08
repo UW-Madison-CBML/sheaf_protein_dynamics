@@ -90,19 +90,22 @@ def build_graph(conformations1, conformations2, lengths, epsilon, adjacency_matr
     
     
 
-def eigenspectrum(laplacians, padding):
+def eigenspectrum(laplacians, lengths):
+    
     # view the two laplacians together
     B, TD, _ = laplacians.shape
-    # need to pad the laplacians with identity columns giving us extra 1 eigvals = T - padding
-    identity_mask = torch.einsum("bi,bj-> bij", padding, padding)
+    assert lengths.shape == (B,), f"WRONG SHAPE: {lengths.shape}"
+    assert lengths.max() <= TD and lengths.min() >= 1, f"BAD RANGE FOR LENGTHS: expected: [{lengths.min()},{lengths.max()}] is not a subset of [1, {TD}]"
+
+    padding = (torch.arange(TD, device=laplacians.device)[None,:] < lengths[:, None])
+    identity_mask = padding[:,None,None,:] & padding[:,None,:,None]
     
+    # need to pad the laplacians with identity columns giving us extra -1 eigvals = T - padding
     identity = -1 * torch.eye(TD, dtype=torch.bool, device = laplacians.device) 
     identity = identity.reshape((1, TD, TD))
     identity = identity.repeat(B, 1, 1)
 
     masked_laplacians = torch.where(identity_mask, laplacians, identity) # sheaf laplacians always has positive eigenvalues, if we pad with negative identity, we know the -1 eignvalues cannot belong to the sheaf laplacian
-    
-
     
     # if our laplacians are symmetric we can use eigvalsh
     # otherwise just use eigvals

@@ -39,7 +39,7 @@ def train_motion_classifier():
     epochs = 8
     val_ratio = 0.3 
     use_adjacency_mat = True
-    batch_size = 32
+    batch_size = 8
     
     # set up device 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 

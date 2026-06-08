@@ -58,7 +58,7 @@ class SheafMotionClassifier(torch.nn.Module):
             # reshape the batches of two sheaves for each conformation into the batches dimension
             sheaves = sheaves.reshape(B*2,E,2,self.stalk_dimensions, self.stalk_dimensions)
             edges = edges.reshape(B*2, E, 2)
-            eigenspectra = eigenspectrum(*sheaf_laplacian(sheaves,edges,node_lengths[:, None] < torch.arange(T)[None,:])).reshape(B,2,T) # B,2,T
+            eigenspectra = eigenspectrum(*sheaf_laplacian(sheaves,edges,node_lengths)).reshape(B,2,T) # B,2,T
         else:
             node_pairs = torch.cat(torch.broadcast_tensors(nodes[:,:,:,None,:],nodes[:,:,None,:,:]), dim=4) # B,2,T,T,2*hidden_dim
             
@@ -71,7 +71,8 @@ class SheafMotionClassifier(torch.nn.Module):
             sheaves = flat_sheaves.reshape(B,2,T,T,self.stalk_dimensions,self.stalk_dimensions)
             # flatten out pair dim
             sheaves = sheaves.reshape(B*2,T,T,self.stalk_dimensions,self.stalk_dimensions)
-            eigenspectra = eigenspectrum(*sheaf_laplacian_adjacency(sheaves,node_lengths)).reshape(B,2,T) # B,2,T
+            # node lengths needs to be doubled for the flattened pair dim
+            eigenspectra = eigenspectrum(*sheaf_laplacian_adjacency(sheaves,node_lengths[:,None].repeat(1,2).flatten())).reshape(B,2,T) # B,2,T
 
             
         eigenspectra = eigenspectra.permute(0,2,1) # B, T, 2

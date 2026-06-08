@@ -92,7 +92,7 @@ def sheaf_laplacian(sheaves, edges, lengths):
 
     return sheaf_laplacian, laplacian_lengths
 
-def sheaf_laplacian_adjacency(sheaves, padding):
+def sheaf_laplacian_adjacency(sheaves, lengths):
     # sheaves: B,T, T, D,D sheaves as an adjacency matrix of restriction maps d x d
     #   pairs should be flattened into batch dim
     #   if [:, t1, t2] does not represent an edge it should be 0
@@ -104,14 +104,15 @@ def sheaf_laplacian_adjacency(sheaves, padding):
     #       padding lengths for the square laplacian matrices
     # TODO clear out padded parts
     B,T,_,D,_ = sheaves.shape
+    print("sheaves.shape: ", sheaves.shape)
     sheaf_laplacian = torch.eye(T, device = sheaves.device, dtype=sheaves.dtype)[None,:,:,None,None].repeat(B, 1,1, D,D)
     diagonal = torch.einsum("buvxy,buvzy->buxz", sheaves, sheaves) # B, T, D, D 
     sheaf_laplacian = diagonal[:,:,None,:,:] * sheaf_laplacian
     non_diagonal = torch.einsum("buvxy,bvuzy->buvxz", -1*sheaves, sheaves)
     sheaf_laplacian += non_diagonal
-    laplacian_padding = padding * D 
+    laplacian_lengths = lengths * D # 
     sheaf_laplacian = sheaf_laplacian.permute(0,1,3,2,4).reshape(B, T*D, T*D)
-    return sheaf_laplacian, laplacian_padding
+    return sheaf_laplacian, laplacian_lengths
 
 if __name__ == "__main__": 
      
