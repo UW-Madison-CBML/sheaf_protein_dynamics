@@ -33,9 +33,9 @@ class SheafMotionClassifier(torch.nn.Module):
         # matrix: shape = B, 2, T, T, type = bool
         # edges: shape = B, 2, E, 2
         # edge_lengths = (B), type = int, 0 <= min, max < E
-        if(not self.adjacency_matrix and not (edges and edge_lengths)):
+        if(not self.adjacency_matrix and (edges is None or edge_lengths is None)):
             raise ValueError("must provide edges and edge padding if not using adjacency matrices")
-        if(self.adjacency_matrix and not matrix):
+        if(self.adjacency_matrix and matrix is None):
             raise ValueError("must provide matrix if using adjacency matrices")
 
         #B,2,T,self.node_features
@@ -60,7 +60,11 @@ class SheafMotionClassifier(torch.nn.Module):
             edges = edges.reshape(B*2, E, 2)
             eigenspectra = eigenspectrum(*sheaf_laplacian(sheaves,edges,node_lengths[:, None] < torch.arange(T)[None,:])).reshape(B,2,T) # B,2,T
         else:
-            node_pairs = torch.cat(torch.broadcast_tensors(nodes[:,:,:,None,:],nodes[:,:,None,:,:]), dim=3) # B,2,T,T,2*hidden_dim
+            node_pairs = torch.cat(torch.broadcast_tensors(nodes[:,:,:,None,:],nodes[:,:,None,:,:]), dim=4) # B,2,T,T,2*hidden_dim
+            
+            print("node_pairs: ", node_pairs.shape)
+            print("mat.shape: ", matrix.shape)
+
             # now mask the sheaves
             node_pairs = matrix[:,:,:,:,None] * node_pairs
             flat_sheaves = F.relu(self.lin3(node_pairs)) # B, 2, T, T, D**2
@@ -71,6 +75,8 @@ class SheafMotionClassifier(torch.nn.Module):
 
             
         eigenspectra = eigenspectra.permute(0,2,1) # B, T, 2
+        # pack padded seqs wants the lengths on the CPU
+        node_lengths = node_lengths.cpu()
         seqs = pack_padded_sequence(eigenspectra, node_lengths, batch_first=True)
         _, (h, _) = self.lstm(seqs) # h.shape = 2, B, lstm_hidden_dim
         h = h.permute(1, 2, 0).reshape(B, 2 * self.lstm_hidden_dim)

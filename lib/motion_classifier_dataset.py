@@ -28,20 +28,21 @@ class MotionClassifierDataset(Dataset):
 
     def __getitem__(self, idx):
         _, df = list(self.groups)[idx]
-        return torch.from_numpy(df[["conf1_0", "conf1_1", "conf1_2"]].to_numpy()), torch.from_numpy(df[["conf2_0", "conf2_1", "conf2_2"]].to_numpy()), torch.tensor(df['residue'].to_list(),dtype=torch.long), torch.tensor(self.__class__.MOTION_CLASSES.index(df.iloc[0]["motion_class"]), dtype=torch.long)
+        return torch.from_numpy(df[["conf1_0", "conf1_1", "conf1_2"]].to_numpy()), torch.from_numpy(df[["conf2_0", "conf2_1", "conf2_2"]].to_numpy()), torch.tensor(df['residue'].to_numpy(),dtype=torch.long), torch.tensor(self.__class__.MOTION_CLASSES.index(df.iloc[0]["motion_class"]), dtype=torch.long)
     @staticmethod
     def pad_collate(batch):
         conformations1, conformations2, residues, motion_classes = zip(*batch)
-        conformations1_padded = torch.stack(pad_sequence(conformations1, batch_first=True, padding_value=0.0, padding_side='right'), dim=0)
-        conformations2_padded = torch.stack(pad_sequence(conformations2, batch_first=True, padding_value=0.0, padding_side='right'), dim=0)
-        residues_padded = torch.stack(pad_sequence(residues, batch_first=True, padding_value=-1, padding_side='right'), dim=0)
+        conformations1_padded = pad_sequence(conformations1, batch_first=True, padding_value=0.0)
+        conformations2_padded = pad_sequence(conformations2, batch_first=True, padding_value=0.0)
+        # need to pad with 0 otherwise F.one_hot() will fail in the training loop 
+        # this will be packed so should not affect gradients
+        residues_padded = pad_sequence(residues, batch_first=True, padding_value=0)
 
         # lengths will be the same for both lists of conformations
         lengths = torch.tensor([len(conf) for conf in conformations1])
-        lengths = torch.arange(conformations1_padded.shape[1])[None, :] < lengths[:, None] 
         
         motion_classes = torch.stack(motion_classes, dim = 0)
 
-        return conformations1_padded, conformations2_padded, residues, motion_classes, lengths
+        return conformations1_padded, conformations2_padded, residues_padded, motion_classes, lengths
 
 

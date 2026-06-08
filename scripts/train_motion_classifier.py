@@ -39,6 +39,7 @@ def train_motion_classifier():
     epochs = 8
     val_ratio = 0.3 
     use_adjacency_mat = True
+    batch_size = 32
     
     # set up device 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu") 
@@ -61,7 +62,8 @@ def train_motion_classifier():
             "epochs":epochs,
             "val_motions": val_motions,
             "val_ratio":val_ratio,
-            "use_adjacency_mat":use_adjacency_mat
+            "use_adjacency_mat":use_adjacency_mat,
+            "batch_size":batch_size
         },
 
     )
@@ -72,11 +74,11 @@ def train_motion_classifier():
     val_dataset = MotionClassifierDataset(val_df)
 
     # set up dataloader
-    loader = DataLoader(dataset,shuffle=True, batch_size=64, num_workers=16, collate_fn=MotionClassifierDataset.padd_collate, pin_memory=True, drop_last=False) 
-    val_loader = DataLoader(val_dataset,shuffle=True, batch_size=64, num_workers=16, collate_fn=MotionClassifierDataset.padd_collate, pin_memory=True, drop_last=False) 
+    loader = DataLoader(dataset, shuffle=True, batch_size=batch_size, num_workers=16, collate_fn=MotionClassifierDataset.pad_collate, pin_memory=True, drop_last=False) 
+    val_loader = DataLoader(val_dataset, shuffle=False, batch_size=batch_size, num_workers=16, collate_fn=MotionClassifierDataset.pad_collate, pin_memory=True, drop_last=False) 
 
     #set up model
-    model = SheafMotionClassifier(len(MotionClassifierDataset.AMINO_ACIDS)+3, 8, num_classes=len(MotionClassifierDataset.MOTION_CLASSES), adjacency_mat=use_adjacency_mat)
+    model = SheafMotionClassifier(len(MotionClassifierDataset.AMINO_ACIDS)+3, 8, num_classes=len(MotionClassifierDataset.MOTION_CLASSES), adjacency_matrix=use_adjacency_mat)
     model = model.to(DEVICE)
     
     # set up other training stuff
@@ -92,15 +94,18 @@ def train_motion_classifier():
             residues = residues.to(DEVICE) # B, T
             motion_classes = motion_classes.to(DEVICE) # B
             if(use_adjacency_mat):
-                mats = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=True) # B, 2, E, 2
+                mats = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=True) # B, 2, T, T, type=bool
+                print("mats.shape: ", mats.shape)    
+
             else:
-                edges, edge_lengths = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=False) # B, 2, E, 2
+                edges, edge_lengths = build_graph(conformations1, conformations2, lengths, torch.tensor(epsilon, device=DEVICE), adjacency_matrix=False) # B, 2, E, 2,type= unsigned int
             residues_one_hot = F.one_hot(residues, num_classes=len(MotionClassifierDataset.AMINO_ACIDS)) # B, T, amino_acids
             node_features1 = torch.cat([conformations1, residues_one_hot],dim=2) # B, T, 3 + amino_acids 
             node_features2 = torch.cat([conformations2, residues_one_hot],dim=2) 
             
             node_features = torch.stack([node_features1, node_features2], dim=1)
-            # just in case any previous operations have been calculating gradients
+            node_features = node_features.to(torch.float)
+            # just in case any previous operations have been accumulating gradients
             optimizer.zero_grad()
 
             if use_adjacency_mat:
@@ -150,6 +155,7 @@ def train_motion_classifier():
                 preds = logits.cpu().argmax(dim=-1)
                 gt = motion_classes.cpu()
                 # get metrics and confusion mat 
+                # metrics = prec, rec, f1, confusion
                 metrics = precision_recall_f1(gt, preds, len(MotionClassifierDataset.MOTION_CLASSES))
                 # sum confusion mat
                 confusion_mat += metrics[3].numpy().astype(int)
@@ -164,6 +170,7 @@ def train_motion_classifier():
                 for k, motion_class in enumerate(MotionClassifierDataset.MOTION_CLASSES):
                     prf_dict[f"{motion_class}_{metric}{agg}"] = precision_recall_f1(i,j,k)
         run.log(prf_dict)   
+
         # do display for the confusion matrix 
         fig, ax = plt.subplots(figsize=(10, 10))
         disp = ConfusionMatrixDisplay(confusion_matrix = confusion_mat, display_labels = MotionClassifierDataset.MOTION_CLASSES)

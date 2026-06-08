@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import numpy as np
 from scipy.spatial import distance_matrix
 
-def build_graph(conformations1, conformations2, padding, epsilon, adjacency_matrix=True):
+def build_graph(conformations1, conformations2, lengths, epsilon, adjacency_matrix=True):
     """
     Creates edges between nodes (atoms/residues) epsilon distance from one another.
     Processes two conformations at once so they are transformed in same way for valid comparison.
@@ -19,26 +19,41 @@ def build_graph(conformations1, conformations2, padding, epsilon, adjacency_matr
         out_padding: Nested lists False if node is padded, True otherwise.
 
     """
-    # padding = (B,T)
     # B, T, 3 = conformations1.shape = conformations2.shape
     B,T, _ = conformations1.shape
+    assert lengths.shape == (B,), f"WRONG SHAPE: {lengths.shape}"
+    assert lengths.max() <= T and lengths.min() >= 1, f"BAD RANGE FOR LENGTHS: expected: [{lengths.min()},{lengths.max()}] is not a subset of [1, {T}]"
+    # lengths = (B), max < T
+    # padding needs to be on CUDA because of (1)
+    # padding = (B,T)
+    padding = (torch.arange(T)[None,:] < lengths[:, None]).to(conformations1.device)
+
     dist_mat1 = torch.cdist(conformations1, conformations1, p=2) # B, T, T
     dist_mat2 = torch.cdist(conformations2, conformations2, p=2) # B, T, T
     dist_mat = torch.stack([dist_mat1, dist_mat2], dim=1)
     # TODO implement some other form of predicate to determine existence of edges
-    adjacency = (dist_mat < epsilon) & (padding[:,None, None, :] & padding[:, None, :, None])
+    print("dist_mat.shape", dist_mat.shape)
+    matrix_padding = padding[:,None, None, :] & padding[:,None, :, None] # B, 1, T, T
+    assert matrix_padding.shape == (B, 1, T, T), f"WRONG SHAPE: {matrix_padding.shape}" 
+    print("matrix_padding.shape: ", matrix_padding.shape)
+    print("epsilon.shape: ", epsilon.shape)
+    adjacency = (dist_mat < epsilon) & matrix_padding # (1)
+    print("adj.shape:", adjacency.shape)
 
     # Remove self-loops and symmetric duplicates by keeping only upper triangle
     # The data structure I'm using in the sheaf laplacian is edges = (B,E,2) a set 
     # of unique edges whose indices are < T, and >= 0. Padding is done with the pairs (-1, -1). 
     # The sheaves or sets of restriction maps are of shape (B,E,2,D,D) where at index [:,i] we have 
     # the 2 restriction maps from node edges[:,i,0] to edge edges[:,i] and from node edges[:,i,1] to edges[:,i]
-    triu_mask = torch.triu(torch.ones((T,T), dtype=torch.bool, device=adjacency.device), diagonal=1)
-    adjacency = adjacency & triu_mask[None, None, :, :]
+    # clear out redundant edges 
+    if not adjacency_matrix:
+        triu_mask = torch.triu(torch.ones((T,T), dtype=torch.bool, device=adjacency.device), diagonal=0)
+        adjacency = adjacency & triu_mask[None, None, :, :]
 
     #if we index restriction maps via adjacency mats 
-    if adjacency_matrix:
-        return adjacency
+    # remove the diagonal, no self edges
+    else:
+        return adjacency & (~torch.eye(T, dtype=torch.bool, device=adjacency.device)[None,None,:,:])
 
     #alternatively if we want to do the edges list 
     rows = torch.arange(T)[None,None,:,None].repeat(B,2, 1, 1)
@@ -81,7 +96,7 @@ def eigenspectrum(laplacians, padding):
     # need to pad the laplacians with identity columns giving us extra 1 eigvals = T - padding
     identity_mask = torch.einsum("bi,bj-> bij", padding, padding)
     
-    identity = -1 * torch.eye(TD) 
+    identity = -1 * torch.eye(TD, dtype=torch.bool, device = laplacians.device) 
     identity = identity.reshape((1, TD, TD))
     identity = identity.repeat(B, 1, 1)
 
@@ -91,7 +106,7 @@ def eigenspectrum(laplacians, padding):
     
     # if our laplacians are symmetric we can use eigvalsh
     # otherwise just use eigvals
-    eigenspectra = torch.linalg.eigvalsh(masked_laplacians)
+    eigenspectra = torch.linalg.eigvals(masked_laplacians)
     return eigenspectra
     
     
