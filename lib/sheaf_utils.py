@@ -37,7 +37,7 @@ def build_graph(conformations1, conformations2, padding, epsilon, adjacency_matr
     adjacency = adjacency & triu_mask[None, None, :, :]
 
     #if we index restriction maps via adjacency mats 
-    if adjecency_matrix:
+    if adjacency_matrix:
         return adjacency
 
     #alternatively if we want to do the edges list 
